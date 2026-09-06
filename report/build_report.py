@@ -218,11 +218,14 @@ p("The completed application is a Python program with a Gradio web interface. Us
   "tried immediately without sourcing external material. The system splits documents "
   "into chunks, generates embeddings using a locally hosted model, and stores the "
   "results in a FAISS index that merges newly added documents into any existing index "
-  "rather than replacing it. When a question is asked, the system retrieves the most "
+  "rather than replacing it. Individual documents can be removed from the index "
+  "without discarding the rest, and a session can be saved and resumed later without "
+  "re-embedding anything. When a question is asked, the system retrieves the most "
   "relevant chunks, constructs a prompt, and passes it to a locally running Llama 3 "
-  "model via Ollama. The answer is returned with a source citation, and a conversation "
-  "history is maintained so that follow-up questions can refer to earlier turns. "
-  "Section 4 describes the implementation in full.")
+  "model via Ollama, streaming the answer back as it is generated. The answer is "
+  "returned with a source citation and an inspectable panel of the retrieved "
+  "passages, and a conversation history is maintained so that follow-up questions can "
+  "refer to earlier turns. Section 4 describes the implementation in full.")
 
 h2("1.9 Will the solution be within the specialism route of my degree?")
 p("Yes. The project sits within the AI and Data Science route, covering natural "
@@ -555,6 +558,58 @@ picture(ASSETS / "screenshot_conversation.png", 5.6,
         "Figure 2: A question answered from the sample corpus, with source citation.")
 p("Figure 3 summarises how these components fit together end to end.")
 picture(ASSETS / "architecture_diagram.png", 6.0, "Figure 3: System architecture.")
+
+h3("Session Persistence and Document Management")
+p("Early feedback on using the application day to day was that re-uploading and "
+  "re-embedding the same documents every time the program restarted was tedious, "
+  "particularly for a large document set on CPU-only hardware, where embedding takes "
+  "a noticeable amount of time. A 'Save session' action now writes the FAISS index to "
+  "disk together with a small manifest recording which chunks came from which "
+  "filename, and a 'Resume last session' action reloads both, so a user can close the "
+  "application and pick up exactly where they left off without re-embedding anything. "
+  "This uses the save and load functions already present in the indexing module, "
+  "which had been written but not yet connected to the interface.")
+p("The same filename-to-chunk manifest also enables removing a single document "
+  "without discarding the whole index, addressing a gap in the original 'remove all "
+  "documents' action: a user who uploads the wrong file no longer has to start the "
+  "whole session over. The interface lists currently loaded documents as a checklist, "
+  "and a 'Remove selected' action deletes only the chosen document's chunks from the "
+  "FAISS index, using its delete-by-id method, before checking whether the index has "
+  "become empty and, if so, discarding it entirely so the application correctly "
+  "reports that nothing is loaded.")
+
+h3("Response Streaming and Retrieval Transparency")
+p("The original interface waited for the full answer to be generated before "
+  "displaying anything, which on CPU-only hardware could mean ten seconds or more of "
+  "an apparently frozen chat window. The generation step now streams the model's "
+  "output token by token as it is produced, using the same underlying Ollama call in "
+  "streaming mode, so the answer appears incrementally rather than all at once. "
+  "Conversation memory is still only updated once the full answer is complete, so a "
+  "question asked mid-stream can never see a partial answer recorded as history.")
+p("A second addition responds to the observation that citations alone name a source "
+  "file but do not show what was actually retrieved. Each answer is now followed by a "
+  "collapsed 'View retrieved excerpts' panel, shown closed by default so it does not "
+  "clutter the conversation, that lists the exact passages the model was given for "
+  "that question, each labelled with its source filename. This lets a user directly "
+  "verify that the answer follows from the retrieved material rather than only "
+  "trusting the filename citation.")
+
+h3("Operational Robustness")
+p("The original implementation let any failure to reach the local Ollama server "
+  "surface as a raw exception from deep inside the embeddings or LLM client. A small "
+  "connectivity check now runs whenever the page loads and again immediately before "
+  "ingesting documents, and reports a plain-language instruction to start Ollama "
+  "rather than a stack trace if the server cannot be reached. This does not change "
+  "the application's behaviour when Ollama is available; it only replaces an unclear "
+  "failure with a clear one.")
+p("An adjustable 'top_k' control was also added to the interface, exposing the "
+  "number of chunks retrieved per question, previously fixed in configuration, as a "
+  "slider a user can change mid-session. This lets a user trade a longer prompt for "
+  "broader context on demand, for example when a question spans several source "
+  "documents, without needing to edit the .env file and restart the application. "
+  "Finally, a 'Download transcript' action exports the current conversation as a "
+  "plain text file, so a set of grounded answers can be kept as revision notes "
+  "outside the application.")
 
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
@@ -1028,6 +1083,28 @@ log_entries = [
      "rather than the earlier placeholder corpus. [STUDENT TO CONFIRM: complete this "
      "entry once the evaluation run finishes and the report has been regenerated with "
      "the final figures.]"),
+    ("Week 19", "[DATES]",
+     "With the EMA baseline complete and time remaining before submission, moved into "
+     "an enhancement phase: put the finished prototype under version control and "
+     "pushed it to a private GitHub repository as a baseline before making further "
+     "changes. Reviewed the application against the scope and 'finished solution' "
+     "description set out in TMA02 and TMA03 to identify quality-of-life "
+     "improvements that would not contradict prior claims. Implemented and tested, "
+     "one at a time: per-document removal from the FAISS index using its delete-by-id "
+     "method, alongside the existing 'remove all' action; session save and resume, "
+     "wiring up the previously unused index save/load functions plus a small JSON "
+     "manifest recording which chunks belong to which filename; streamed answer "
+     "generation, replacing a wait for the full response with incremental output; a "
+     "collapsible 'view retrieved excerpts' panel under each answer, so the passages "
+     "backing an answer are inspectable directly in the chat; an adjustable top_k "
+     "control; a conversation transcript download; and a plain-language Ollama "
+     "connectivity check, replacing a raw exception with an actionable message. Four "
+     "new unit tests were added for the pipeline changes and four for the prompt "
+     "formatting and health check additions, all passing alongside the existing "
+     "suite. What went well: building and testing one feature at a time, as with the "
+     "core pipeline earlier in the project, meant each addition could be verified in "
+     "isolation before moving to the next. [STUDENT TO CONFIRM: complete this entry "
+     "with the exact date range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:

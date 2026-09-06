@@ -1,5 +1,7 @@
 """End-to-end RAG pipeline: ingest documents, retrieve chunks, generate cited answers."""
-from typing import List, Optional, Tuple
+import json
+from pathlib import Path
+from typing import Dict, Iterator, List, Optional, Tuple
 
 from langchain_core.documents import Document
 from langchain_ollama import ChatOllama
@@ -27,6 +29,9 @@ class RAGPipeline:
             max_turns=settings.memory_max_turns,
             max_tokens=settings.memory_max_tokens,
         )
+        # Maps a source filename to the FAISS chunk ids it contributed, so a single
+        # document can be removed from the index without rebuilding it from scratch.
+        self.doc_chunk_ids: Dict[str, List[str]] = {}
 
     def ingest(self, file_paths: List[str]) -> int:
         """Load, chunk and add the given documents to the index. Returns the newly added chunk count.
@@ -36,29 +41,69 @@ class RAGPipeline:
         """
         documents = load_documents(file_paths)
         chunks = split_documents(documents, self.settings.chunk_size, self.settings.chunk_overlap)
+        if not chunks:
+            return 0
         if self.index is None:
             self.index = build_index(chunks, self.embeddings)
+            ids = [self.index.index_to_docstore_id[i] for i in range(len(chunks))]
         else:
-            self.index.add_documents(chunks)
+            ids = self.index.add_documents(chunks)
+        self._track_chunk_ids(chunks, ids)
         return len(chunks)
+
+    def _track_chunk_ids(self, chunks: List[Document], ids: List[str]) -> None:
+        for chunk, chunk_id in zip(chunks, ids):
+            source = Path(chunk.metadata.get("source", "unknown")).name
+            self.doc_chunk_ids.setdefault(source, []).append(chunk_id)
 
     @property
     def total_chunks(self) -> int:
         """Total chunks currently in the index, across all ingested documents."""
         return self.index.index.ntotal if self.index is not None else 0
 
+    @property
+    def loaded_documents(self) -> List[str]:
+        """Filenames currently contributing chunks to the index, sorted for display."""
+        return sorted(self.doc_chunk_ids.keys())
+
+    def remove_document(self, filename: str) -> None:
+        """Remove a single previously ingested document's chunks from the index.
+
+        Leaves other documents and the conversation memory untouched. If the
+        removed document was the last one in the index, the index is discarded
+        entirely so subsequent queries correctly report that nothing is loaded.
+        """
+        ids = self.doc_chunk_ids.pop(filename, None)
+        if not ids or self.index is None:
+            return
+        self.index.delete(ids)
+        if self.total_chunks == 0:
+            self.index = None
+
     def clear_documents(self) -> None:
         """Discard the index and conversation memory, returning to a blank session."""
         self.index = None
         self.memory.clear()
+        self.doc_chunk_ids = {}
 
     def save(self, path: Optional[str] = None) -> None:
+        """Persist the index and the filename-to-chunk-id manifest so a session can be resumed."""
         if self.index is None:
             raise RuntimeError("No index to save. Call ingest() first.")
-        save_index(self.index, path or self.settings.index_dir)
+        target = path or self.settings.index_dir
+        save_index(self.index, target)
+        manifest_path = Path(target) / "doc_chunk_ids.json"
+        manifest_path.write_text(json.dumps(self.doc_chunk_ids), encoding="utf-8")
 
     def load(self, path: Optional[str] = None) -> None:
-        self.index = load_index(path or self.settings.index_dir, self.embeddings)
+        """Load a previously saved index and its document manifest, replacing the current session."""
+        target = path or self.settings.index_dir
+        self.index = load_index(target, self.embeddings)
+        manifest_path = Path(target) / "doc_chunk_ids.json"
+        if manifest_path.exists():
+            self.doc_chunk_ids = json.loads(manifest_path.read_text(encoding="utf-8"))
+        else:
+            self.doc_chunk_ids = {}
 
     def retrieve(self, question: str) -> List[Document]:
         if self.index is None:
@@ -72,6 +117,23 @@ class RAGPipeline:
         response = self.llm.invoke(prompt)
         content = getattr(response, "content", response)
         return str(content).strip()
+
+    def generate_stream(self, question: str, docs: List[Document]) -> Iterator[str]:
+        """Yield the answer incrementally as the model produces it.
+
+        Falls back to a single yield of the complete answer if the underlying
+        LLM (e.g. a test fake) does not support streaming.
+        """
+        context = format_context(docs)
+        history = self.memory.as_text()
+        prompt = SYSTEM_PROMPT.format(context=context, history=history, question=question)
+        if not hasattr(self.llm, "stream"):
+            yield self.generate(question, docs)
+            return
+        for chunk in self.llm.stream(prompt):
+            content = getattr(chunk, "content", chunk)
+            if content:
+                yield str(content)
 
     def _citations_block(self, docs: List[Document]) -> str:
         seen = []
@@ -89,6 +151,23 @@ class RAGPipeline:
         full_answer = f"{answer}\n\n{citations}" if citations else answer
         self.memory.add_turn(question, full_answer)
         return full_answer, docs
+
+    def query_stream(self, question: str) -> Iterator[Tuple[str, List[Document]]]:
+        """Retrieve context once, then yield the growing answer as it streams in.
+
+        Conversation memory is only updated once generation is complete, on the
+        final yield, so a mid-stream read never sees a partial answer recorded
+        as history.
+        """
+        docs = self.retrieve(question)
+        answer_so_far = ""
+        for piece in self.generate_stream(question, docs):
+            answer_so_far += piece
+            yield answer_so_far, docs
+        citations = self._citations_block(docs)
+        full_answer = f"{answer_so_far.strip()}\n\n{citations}" if citations else answer_so_far.strip()
+        self.memory.add_turn(question, full_answer)
+        yield full_answer, docs
 
     def reset_memory(self) -> None:
         self.memory.clear()

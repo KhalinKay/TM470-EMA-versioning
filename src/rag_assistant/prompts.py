@@ -43,3 +43,11 @@ def format_context(docs: List[Document]) -> str:
 def format_citation(doc: Document) -> str:
     """Render the mandatory 'Source: [filename], page [n]' citation line."""
     return f"Source: {_filename(doc)}, page {_page_label(doc)}"
+
+
+def format_excerpt(doc: Document, max_chars: int = 320) -> str:
+    """Render a retrieved chunk as a labelled excerpt for a 'view sources' panel."""
+    text = doc.page_content.strip()
+    if len(text) > max_chars:
+        text = text[:max_chars].rstrip() + "..."
+    return f"{_filename(doc)}, page {_page_label(doc)}\n{text}"

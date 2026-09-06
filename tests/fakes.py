@@ -34,3 +34,11 @@ class FakeLLM:
     def invoke(self, prompt: str):
         self.last_prompt = prompt
         return _FakeResponse(self.answer)
+
+    def stream(self, prompt: str):
+        """Yield the canned answer one word at a time, mimicking ChatOllama.stream()."""
+        self.last_prompt = prompt
+        words = self.answer.split(" ")
+        for i, word in enumerate(words):
+            piece = word if i == 0 else " " + word
+            yield _FakeResponse(piece)
