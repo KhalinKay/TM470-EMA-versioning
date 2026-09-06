@@ -24,6 +24,18 @@ def test_query_returns_answer_with_citation():
     assert len(docs) > 0
 
 
+def test_retrieve_attaches_a_numeric_distance_score_to_each_chunk():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    docs = pipeline.retrieve("What is RAG?")
+    assert len(docs) > 0
+    assert all(isinstance(doc.metadata.get("score"), float) for doc in docs)
+
+
 def test_query_before_ingest_raises():
     pipeline = _pipeline()
     try:

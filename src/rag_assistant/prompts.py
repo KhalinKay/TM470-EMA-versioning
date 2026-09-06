@@ -50,4 +50,8 @@ def format_excerpt(doc: Document, max_chars: int = 320) -> str:
     text = doc.page_content.strip()
     if len(text) > max_chars:
         text = text[:max_chars].rstrip() + "..."
-    return f"{_filename(doc)}, page {_page_label(doc)}\n{text}"
+    header = f"{_filename(doc)}, page {_page_label(doc)}"
+    score = doc.metadata.get("score")
+    if isinstance(score, (int, float)):
+        header += f" (distance {score:.3f}, lower is closer)"
+    return f"{header}\n{text}"

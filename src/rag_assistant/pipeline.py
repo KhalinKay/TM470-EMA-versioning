@@ -108,17 +108,26 @@ class RAGPipeline:
     def retrieve(self, question: str, scope: Optional[List[str]] = None) -> List[Document]:
         """Retrieve the top_k most relevant chunks, optionally restricted to a subset
         of loaded documents (matched by filename, as tracked in doc_chunk_ids).
+
+        Each returned Document carries the raw FAISS distance score under
+        metadata["score"] (lower means closer/more relevant), copied onto a new
+        Document rather than mutated in place so the underlying FAISS docstore
+        entries are never modified.
         """
         if self.index is None:
             raise RuntimeError("No index loaded. Ingest or load documents first.")
-        if not scope:
-            return self.index.similarity_search(question, k=self.settings.top_k)
-        allowed = set(scope)
+        filter_fn = None
+        if scope:
+            allowed = set(scope)
 
-        def _in_scope(metadata: dict) -> bool:
-            return Path(metadata.get("source", "")).name in allowed
+            def filter_fn(metadata: dict) -> bool:
+                return Path(metadata.get("source", "")).name in allowed
 
-        return self.index.similarity_search(question, k=self.settings.top_k, filter=_in_scope)
+        pairs = self.index.similarity_search_with_score(question, k=self.settings.top_k, filter=filter_fn)
+        return [
+            Document(page_content=doc.page_content, metadata={**doc.metadata, "score": float(score)})
+            for doc, score in pairs
+        ]
 
     def generate(self, question: str, docs: List[Document]) -> str:
         context = format_context(docs)

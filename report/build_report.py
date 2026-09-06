@@ -645,6 +645,22 @@ p("An Ollama model can return a different answer to the same question on separat
   "stale answer is not still present in the history used to build the next prompt "
   "and the regenerated turn is recorded exactly once.")
 
+h3("Retrieval Distance Scores")
+p("The 'view retrieved excerpts' panel introduced earlier lists what was retrieved "
+  "but not how closely it matched the question, leaving a user to judge relevance by "
+  "reading the passage alone. Each excerpt now also shows the raw FAISS distance "
+  "score for that chunk, labelled 'lower is closer' rather than converted into an "
+  "invented percentage, since the underlying embeddings are not normalised and a "
+  "manufactured confidence figure would overstate the precision of the measurement. "
+  "This reuses FAISS's own similarity-search-with-score method in place of the "
+  "plain similarity search used previously, copying the score onto a new Document "
+  "object rather than mutating the one held in the FAISS docstore, so the change "
+  "does not affect what is saved to or loaded from disk.")
+p("This is a modest addition, but it closes the gap between what earlier sections of "
+  "this report describe FAISS as doing internally and what the interface actually "
+  "shows a user, matching the project's general principle that a claim of grounding "
+  "should be something a user can inspect directly rather than take on trust.")
+
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
   "system. It scores three metrics between 0 and 1: Answer Relevance, whether the "
@@ -1176,6 +1192,23 @@ log_entries = [
      "test fakes, caught a real formatting inconsistency in the chat component that "
      "the test suite alone would not have exercised. [STUDENT TO CONFIRM: complete "
      "this entry with the exact date range once finalised.]"),
+    ("Week 22", "[DATES]",
+     "Added retrieval distance scores to the 'view retrieved excerpts' panel, "
+     "switching the retrieval call from FAISS's plain similarity search to its "
+     "similarity-search-with-score equivalent so each excerpt can be labelled with "
+     "the raw distance between the question and that chunk, described as 'lower is "
+     "closer' rather than converted into a percentage that the underlying, "
+     "non-normalised embeddings could not honestly support. The score is copied onto "
+     "a new Document object rather than written into the FAISS docstore's own copy, "
+     "so saved sessions and per-document manifests are unaffected. Two new unit "
+     "tests were added, one confirming retrieval attaches a numeric score to every "
+     "returned chunk and one confirming the excerpt formatter renders it correctly, "
+     "and the feature was confirmed live in the browser, where the four excerpts "
+     "returned for a sample question were shown in ascending distance order. What "
+     "went well: the FAISS distance-scored search accepts the same k and filter "
+     "arguments as the plain search used previously, so no other retrieval logic "
+     "needed to change. [STUDENT TO CONFIRM: complete this entry with the exact date "
+     "range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:

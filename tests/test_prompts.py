@@ -25,3 +25,9 @@ def test_format_excerpt_leaves_short_content_untouched():
     doc = Document(page_content="short text", metadata={"source": "notes.txt"})
     excerpt = format_excerpt(doc)
     assert excerpt == "notes.txt, page n/a\nshort text"
+
+
+def test_format_excerpt_shows_distance_score_when_present():
+    doc = Document(page_content="short text", metadata={"source": "notes.txt", "score": 0.1234})
+    excerpt = format_excerpt(doc)
+    assert excerpt == "notes.txt, page n/a (distance 0.123, lower is closer)\nshort text"
