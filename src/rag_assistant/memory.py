@@ -21,6 +21,16 @@ class ConversationMemory:
         self.turns.append((question, answer))
         self._trim()
 
+    def pop_last_turn(self):
+        """Remove and return the most recent (question, answer) turn, or None if empty.
+
+        Used when regenerating an answer, so the stale turn is not duplicated
+        once the new one is recorded.
+        """
+        if not self.turns:
+            return None
+        return self.turns.pop()
+
     def _trim(self) -> None:
         while self.turns and (len(self.turns) > self.max_turns or self._token_estimate() > self.max_tokens):
             self.turns.pop(0)

@@ -78,6 +78,28 @@ def test_memory_accumulates_and_resets():
     assert len(pipeline.memory.turns) == 0
 
 
+def test_regenerate_replaces_last_turn_without_duplicating_memory():
+    """Simulates the UI's 'Regenerate answer' action: pop the stale turn, then
+    re-run the same question, and confirm memory still holds exactly one turn."""
+    pipeline = _pipeline("first answer")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    pipeline.query("What is RAG?")
+    assert len(pipeline.memory.turns) == 1
+
+    popped = pipeline.memory.pop_last_turn()
+    assert popped is not None
+    assert len(pipeline.memory.turns) == 0
+
+    pipeline.llm.answer = "second answer"
+    answer, _ = pipeline.query("What is RAG?")
+    assert "second answer" in answer
+    assert len(pipeline.memory.turns) == 1
+
+
 def test_remove_document_drops_only_that_documents_chunks():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:

@@ -45,6 +45,16 @@ def _doc_choices(pipeline: Optional[RAGPipeline]):
     return gr.update(choices=pipeline.loaded_documents if pipeline else [], value=[])
 
 
+def _message_text(content) -> str:
+    """Chat message content is normally a plain string, but Gradio's Chatbot can
+    round-trip it as a list of {"text": ..., "type": "text"} parts. Handle both."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return str(content)
+
+
 def handle_upload(files, pipeline: Optional[RAGPipeline]):
     if not files:
         return "No files selected.", pipeline, _doc_choices(pipeline)
@@ -200,6 +210,49 @@ def handle_clear(pipeline: Optional[RAGPipeline]):
     return [], pipeline
 
 
+def handle_regenerate(history, pipeline: Optional[RAGPipeline], selected_docs: List[str], scope_enabled: bool):
+    """Re-ask the most recent question, discarding its previous answer.
+
+    Finds the last user turn in the chat history, drops everything after it
+    (the stale answer and any excerpts panel), pops the matching turn from
+    conversation memory so it is not duplicated, then streams a fresh answer
+    exactly as handle_message does.
+    """
+    history = history or []
+    last_user_index = None
+    for i in range(len(history) - 1, -1, -1):
+        if history[i].get("role") == "user":
+            last_user_index = i
+            break
+    if last_user_index is None or pipeline is None or pipeline.index is None:
+        yield history, pipeline
+        return
+
+    question = _message_text(history[last_user_index]["content"])
+    history = history[: last_user_index + 1] + [{"role": "assistant", "content": ""}]
+    pipeline.memory.pop_last_turn()
+    yield history, pipeline
+
+    scope = selected_docs if (scope_enabled and selected_docs) else None
+    last_docs = []
+    try:
+        for partial_answer, docs in pipeline.query_stream(question, scope=scope):
+            last_docs = docs
+            history[-1] = {"role": "assistant", "content": partial_answer}
+            yield history, pipeline
+    except Exception as exc:
+        history[-1] = {"role": "assistant", "content": f"Error while generating a response: {exc}"}
+        yield history, pipeline
+        return
+
+    if last_docs:
+        excerpts = "\n\n".join(format_excerpt(doc) for doc in last_docs)
+        history = history + [
+            {"role": "assistant", "content": excerpts, "metadata": {"title": "View retrieved excerpts"}}
+        ]
+        yield history, pipeline
+
+
 def handle_download_transcript(history):
     if not history:
         return None
@@ -270,6 +323,7 @@ def build_app() -> gr.Blocks:
         gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
         with gr.Row():
             submit_btn = gr.Button("Ask", variant="primary")
+            regenerate_btn = gr.Button("Regenerate answer")
             clear_btn = gr.Button("Clear conversation")
             download_btn = gr.DownloadButton("Download transcript", size="sm")
 
@@ -317,6 +371,11 @@ def build_app() -> gr.Blocks:
             handle_message,
             inputs=[question_box, chatbot, pipeline_state, doc_list, scope_checkbox],
             outputs=[chatbot, pipeline_state, question_box],
+        )
+        regenerate_btn.click(
+            handle_regenerate,
+            inputs=[chatbot, pipeline_state, doc_list, scope_checkbox],
+            outputs=[chatbot, pipeline_state],
         )
         clear_btn.click(handle_clear, inputs=[pipeline_state], outputs=[chatbot, pipeline_state])
         download_btn.click(handle_download_transcript, inputs=[chatbot], outputs=[download_btn])

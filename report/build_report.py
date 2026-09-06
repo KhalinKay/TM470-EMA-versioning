@@ -227,7 +227,8 @@ p("The completed application is a Python program with a Gradio web interface. Us
   "passages, and a conversation history is maintained so that follow-up questions can "
   "refer to earlier turns. Retrieval can also be restricted to a chosen subset of the "
   "loaded documents, so a user can deliberately narrow a question to one source "
-  "without removing the others from the index. Section 4 describes the implementation "
+  "without removing the others from the index, and any answer can be regenerated in "
+  "place without retyping the question. Section 4 describes the implementation "
   "in full.")
 
 h2("1.9 Will the solution be within the specialism route of my degree?")
@@ -632,6 +633,17 @@ p("The declining behaviour described in Section 4.1 still applies within a restr
   "user a way to deliberately narrow revision to one source, for example a single "
   "week's reading, while keeping the same grounding guarantee that made the assistant "
   "trustworthy in the first place.")
+
+h3("Answer Regeneration")
+p("An Ollama model can return a different answer to the same question on separate "
+  "runs, since generation is not deterministic even at a low temperature setting, and "
+  "a retrieved passage is occasionally phrased in a way the model summarises poorly "
+  "on a first attempt. A 'Regenerate answer' action re-asks the most recent question "
+  "without requiring it to be retyped, discarding the previous answer and its "
+  "excerpts panel and streaming a fresh one in their place. The corresponding turn is "
+  "first removed from conversation memory before the question is re-asked, so the "
+  "stale answer is not still present in the history used to build the next prompt "
+  "and the regenerated turn is recorded exactly once.")
 
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
@@ -1144,6 +1156,26 @@ log_entries = [
      "plain callable over chunk metadata, so the feature needed no changes to how "
      "documents are chunked, embedded or stored. [STUDENT TO CONFIRM: complete this "
      "entry with the exact date range once finalised.]"),
+    ("Week 21", "[DATES]",
+     "Added a third quality-of-life feature: a 'Regenerate answer' action that "
+     "re-asks the most recent question in place, for cases where a non-deterministic "
+     "generation run produces a poorly phrased summary of an otherwise correctly "
+     "retrieved passage. The action locates the last user turn in the chat history, "
+     "discards the stale answer and excerpts panel, removes the matching turn from "
+     "conversation memory so it is not duplicated, and streams a fresh answer using "
+     "the same retrieval and generation path as an ordinary question. Encountered and "
+     "fixed a bug during live testing: the chat history component occasionally "
+     "returns message content as a list of structured text parts rather than a plain "
+     "string, which raised a validation error when passed straight to the embedding "
+     "call; a small helper was added to normalise both forms before re-asking the "
+     "question. A new unit test was added confirming that regenerating an answer "
+     "replaces the previous memory turn rather than appending to it, and the fix was "
+     "confirmed live in the browser by asking a question, regenerating it, and "
+     "checking the conversation still held exactly one exchange. What went well: "
+     "testing directly against the running application, rather than only the unit "
+     "test fakes, caught a real formatting inconsistency in the chat component that "
+     "the test suite alone would not have exercised. [STUDENT TO CONFIRM: complete "
+     "this entry with the exact date range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:
