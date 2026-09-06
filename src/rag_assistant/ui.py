@@ -25,12 +25,123 @@ SAMPLE_QUESTIONS = [
     "How does Confucianism differ from Daoism in its approach to social order?",
 ]
 
-# Muted teal/amber/stone palette: deliberately not the default indigo/violet "AI" look.
+# A warm, paper-and-ink "study" aesthetic: deliberately not the default indigo/violet
+# "AI chatbot" look. Colours are a muted teal (primary action), amber (accents) and a
+# warm stone/parchment neutral scale. Fonts are local system fonts only (no network
+# fetches), matching the project's fully-offline requirement. Light-mode values are
+# repeated as the dark-mode values too, so the look is consistent regardless of the
+# viewer's OS/browser colour-scheme preference rather than falling back to Gradio's
+# default dark palette.
 THEME = gr.themes.Soft(
     primary_hue=gr.themes.colors.teal,
     secondary_hue=gr.themes.colors.amber,
     neutral_hue=gr.themes.colors.stone,
+    font=(gr.themes.Font("Segoe UI"), gr.themes.Font("ui-sans-serif"), gr.themes.Font("system-ui"), gr.themes.Font("sans-serif")),
+    font_mono=(gr.themes.Font("Consolas"), gr.themes.Font("ui-monospace"), gr.themes.Font("monospace")),
+).set(
+    body_background_fill="#FAF6EE",
+    body_background_fill_dark="#FAF6EE",
+    background_fill_primary="#FFFFFF",
+    background_fill_primary_dark="#FFFFFF",
+    background_fill_secondary="#F3EDE0",
+    background_fill_secondary_dark="#F3EDE0",
+    block_background_fill="#FFFFFF",
+    block_background_fill_dark="#FFFFFF",
+    block_border_color="#E5DCC6",
+    block_border_color_dark="#E5DCC6",
+    block_border_width="1px",
+    block_radius="14px",
+    block_shadow="0 1px 3px rgba(41, 37, 27, 0.06)",
+    panel_background_fill="#F3EDE0",
+    panel_background_fill_dark="#F3EDE0",
+    panel_border_color="#E5DCC6",
+    panel_border_color_dark="#E5DCC6",
+    border_color_primary="#E5DCC6",
+    border_color_primary_dark="#E5DCC6",
+    checkbox_background_color="#FFFFFF",
+    checkbox_background_color_dark="#FFFFFF",
+    checkbox_background_color_selected="#0F6B62",
+    checkbox_background_color_selected_dark="#0F6B62",
+    checkbox_border_color="#E5DCC6",
+    checkbox_border_color_dark="#E5DCC6",
+    checkbox_border_color_selected="#0F6B62",
+    checkbox_border_color_selected_dark="#0F6B62",
+    checkbox_label_background_fill="#FFFFFF",
+    checkbox_label_background_fill_dark="#FFFFFF",
+    block_label_text_color="#6B6252",
+    block_label_text_color_dark="#6B6252",
+    block_title_text_color="#2A2620",
+    block_title_text_color_dark="#2A2620",
+    body_text_color="#2A2620",
+    body_text_color_dark="#2A2620",
+    body_text_color_subdued="#7A7161",
+    body_text_color_subdued_dark="#7A7161",
+    input_background_fill="#FFFFFF",
+    input_background_fill_dark="#FFFFFF",
+    input_border_color="#E5DCC6",
+    input_border_color_dark="#E5DCC6",
+    button_primary_background_fill="#0F6B62",
+    button_primary_background_fill_dark="#0F6B62",
+    button_primary_background_fill_hover="#0C554E",
+    button_primary_background_fill_hover_dark="#0C554E",
+    button_primary_text_color="#FFFFFF",
+    button_primary_text_color_dark="#FFFFFF",
+    button_secondary_background_fill="#FFFFFF",
+    button_secondary_background_fill_dark="#FFFFFF",
+    button_secondary_background_fill_hover="#F3EDE0",
+    button_secondary_background_fill_hover_dark="#F3EDE0",
+    button_secondary_border_color="#0F6B62",
+    button_secondary_border_color_dark="#0F6B62",
+    button_secondary_text_color="#0F6B62",
+    button_secondary_text_color_dark="#0F6B62",
+    border_color_accent="#C68A3B",
+    border_color_accent_dark="#C68A3B",
+    color_accent="#0F6B62",
+    color_accent_soft_dark="#F3EDE0",
+    link_text_color="#0F6B62",
+    link_text_color_dark="#0F6B62",
 )
+
+# Header/hero band and a few small refinements CSS can reach that theme variables
+# cannot (max page width, the hero banner, the footer note). No @import/remote
+# fonts here, in keeping with the fully-offline requirement.
+CUSTOM_CSS = """
+.gradio-container { max-width: 980px !important; margin: 0 auto !important; }
+#hero {
+    background: linear-gradient(135deg, #0F6B62 0%, #134A44 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 6px;
+    box-shadow: 0 4px 14px rgba(15, 107, 98, 0.18);
+}
+#hero h1 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    color: #FFFFFF !important;
+    font-size: 1.9rem;
+    margin: 0 0 6px 0;
+    letter-spacing: 0.2px;
+}
+#hero p { color: #DCEFEC !important; margin: 0; font-size: 0.98rem; line-height: 1.5; }
+#hero .badge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #EAF6F4 !important;
+    font-size: 0.78rem;
+    letter-spacing: 0.3px;
+}
+footer#footer-note {
+    text-align: center;
+    color: #9A9280;
+    font-size: 0.78rem;
+    margin-top: 18px;
+    padding-bottom: 8px;
+}
+#chatbot.block { border-width: 1px !important; border-color: #E5DCC6 !important; }
+"""
 
 
 def _new_pipeline() -> RAGPipeline:
@@ -328,16 +439,17 @@ def handle_download_transcript(history):
 
 
 def build_app() -> gr.Blocks:
+    # theme/css are applied at launch() time (see main.py), not here: Gradio 6.x
+    # moved both parameters from the Blocks constructor to launch().
     with gr.Blocks(title="RAG Study Assistant") as demo:
-        gr.Markdown(
-            "# RAG Study Assistant\n"
-            "Upload your own PDF, .txt or .docx study documents, or click **Load sample documents** to try a "
-            "bundled History and Philosophy of Religion study pack. Everything runs locally through Ollama; "
-            "no data leaves this machine.\n\n"
-            "**Answers stay on topic by design.** Every answer is grounded in your uploaded material and cites "
-            "its source; a question outside that material is declined rather than guessed at. This is what "
-            "keeps the assistant trustworthy for study and revision, not a limitation to work around. See "
-            "below for why."
+        gr.HTML(
+            "<div id='hero'>"
+            "<h1>RAG Study Assistant</h1>"
+            "<p>Upload your own PDF, .txt or .docx study documents, or load the bundled History and "
+            "Philosophy of Religion sample pack. Every answer is grounded in your material and cites its "
+            "source; a question outside that material is declined rather than guessed at.</p>"
+            "<span class='badge'>Runs entirely offline &middot; nothing leaves this machine</span>"
+            "</div>"
         )
         connection_banner = gr.Markdown(visible=False)
         with gr.Accordion("Why does it decline some questions?", open=False):
@@ -351,53 +463,55 @@ def build_app() -> gr.Blocks:
             )
         pipeline_state = gr.State(None)
 
-        with gr.Row():
-            file_upload = gr.Files(label="Upload study documents", file_types=[".pdf", ".txt", ".docx"])
-            with gr.Column():
-                sample_btn = gr.Button("Load sample documents (History of Religion)")
-                with gr.Row():
-                    save_session_btn = gr.Button("Save session", size="sm")
-                    resume_session_btn = gr.Button("Resume last session", size="sm")
-                remove_docs_btn = gr.Button("Remove all documents", size="sm")
-            upload_status = gr.Textbox(label="Index status", interactive=False)
+        with gr.Group():
+            with gr.Row():
+                file_upload = gr.Files(label="Upload study documents", file_types=[".pdf", ".txt", ".docx"])
+                with gr.Column():
+                    sample_btn = gr.Button("Load sample documents (History of Religion)")
+                    with gr.Row():
+                        save_session_btn = gr.Button("Save session", size="sm")
+                        resume_session_btn = gr.Button("Resume last session", size="sm")
+                    remove_docs_btn = gr.Button("Remove all documents", size="sm")
+                upload_status = gr.Textbox(label="Index status", interactive=False)
 
-        with gr.Accordion("Loaded documents", open=False):
-            doc_list = gr.CheckboxGroup(label="Select document(s)", choices=[])
-            scope_checkbox = gr.Checkbox(
-                label="Answer using only the selected document(s) above",
-                value=False,
-                info="Leave unchecked to search all loaded documents.",
-            )
-            remove_selected_btn = gr.Button("Remove selected", size="sm")
+            with gr.Accordion("Loaded documents", open=False):
+                doc_list = gr.CheckboxGroup(label="Select document(s)", choices=[])
+                scope_checkbox = gr.Checkbox(
+                    label="Answer using only the selected document(s) above",
+                    value=False,
+                    info="Leave unchecked to search all loaded documents.",
+                )
+                remove_selected_btn = gr.Button("Remove selected", size="sm")
 
-        with gr.Accordion("Advanced settings", open=False):
-            top_k_slider = gr.Slider(
-                minimum=1, maximum=10, step=1, value=SETTINGS.top_k,
-                label="Chunks retrieved per question (top_k)",
-                info="Higher values give the model more context per question, at the cost of a longer prompt. "
-                     "Applies to the next question asked.",
-            )
-            model_dropdown = gr.Dropdown(
-                label="Generation model",
-                choices=[SETTINGS.llm_model],
-                value=SETTINGS.llm_model,
-                info="Models currently pulled in the local Ollama server. The embedding model stays fixed, "
-                     "so switching this does not require re-embedding any loaded documents.",
-            )
-            answer_style_radio = gr.Radio(
-                choices=[("Concise", "concise"), ("Detailed", "detailed")],
-                value=SETTINGS.answer_style,
-                label="Answer style",
-                info="Detailed answers cover more background and reasoning; concise answers stay short and direct. "
-                     "Applies to the next question asked.",
-            )
+            with gr.Accordion("Advanced settings", open=False):
+                top_k_slider = gr.Slider(
+                    minimum=1, maximum=10, step=1, value=SETTINGS.top_k,
+                    label="Chunks retrieved per question (top_k)",
+                    info="Higher values give the model more context per question, at the cost of a longer prompt. "
+                         "Applies to the next question asked.",
+                )
+                model_dropdown = gr.Dropdown(
+                    label="Generation model",
+                    choices=[SETTINGS.llm_model],
+                    value=SETTINGS.llm_model,
+                    info="Models currently pulled in the local Ollama server. The embedding model stays fixed, "
+                         "so switching this does not require re-embedding any loaded documents.",
+                )
+                answer_style_radio = gr.Radio(
+                    choices=[("Concise", "concise"), ("Detailed", "detailed")],
+                    value=SETTINGS.answer_style,
+                    label="Answer style",
+                    info="Detailed answers cover more background and reasoning; concise answers stay short and direct. "
+                         "Applies to the next question asked.",
+                )
 
-        chatbot = gr.Chatbot(label="Conversation", height=450)
-        question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
-        gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
-        with gr.Row():
-            submit_btn = gr.Button("Ask", variant="primary")
-            regenerate_btn = gr.Button("Regenerate answer")
+        with gr.Group():
+            chatbot = gr.Chatbot(label="Conversation", height=450, elem_id="chatbot")
+            question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
+            gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
+            with gr.Row():
+                submit_btn = gr.Button("Ask", variant="primary")
+                regenerate_btn = gr.Button("Regenerate answer")
             clear_btn = gr.Button("Clear conversation")
             download_btn = gr.DownloadButton("Download transcript", size="sm")
 
@@ -465,6 +579,8 @@ def build_app() -> gr.Blocks:
         download_btn.click(handle_download_transcript, inputs=[chatbot], outputs=[download_btn])
         demo.load(handle_connection_check, outputs=[connection_banner])
         demo.load(handle_model_choices, outputs=[model_dropdown])
+
+        gr.HTML("<footer id='footer-note'>Local RAG Study Assistant &middot; Ollama, FAISS and LangChain</footer>")
 
     return demo
 
