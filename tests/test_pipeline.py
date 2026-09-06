@@ -33,6 +33,38 @@ def test_query_before_ingest_raises():
         pass
 
 
+def test_retrieve_with_scope_only_returns_chunks_from_selected_documents():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        notes_path = Path(tmp_dir) / "notes.txt"
+        notes_path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        other_path = Path(tmp_dir) / "other.txt"
+        other_path.write_text("FAISS is a vector similarity search library. " * 20, encoding="utf-8")
+        pipeline.ingest([str(notes_path)])
+        pipeline.ingest([str(other_path)])
+
+    docs = pipeline.retrieve("What is RAG?", scope=["notes.txt"])
+
+    assert len(docs) > 0
+    assert all(Path(doc.metadata["source"]).name == "notes.txt" for doc in docs)
+
+
+def test_query_with_scope_cites_only_the_selected_document():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        notes_path = Path(tmp_dir) / "notes.txt"
+        notes_path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        other_path = Path(tmp_dir) / "other.txt"
+        other_path.write_text("FAISS is a vector similarity search library. " * 20, encoding="utf-8")
+        pipeline.ingest([str(notes_path)])
+        pipeline.ingest([str(other_path)])
+
+    answer, docs = pipeline.query("What is RAG?", scope=["notes.txt"])
+
+    assert "Source: notes.txt" in answer
+    assert "Source: other.txt" not in answer
+
+
 def test_memory_accumulates_and_resets():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:

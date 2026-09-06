@@ -150,7 +150,7 @@ def handle_connection_check():
     return gr.update(visible=False)
 
 
-def handle_message(message: str, history, pipeline: Optional[RAGPipeline]):
+def handle_message(message: str, history, pipeline: Optional[RAGPipeline], selected_docs: List[str], scope_enabled: bool):
     """Gradio's Chatbot (v6) uses the OpenAI-style messages format: a list of
     {"role": "user"|"assistant", "content": ...} dicts rather than tuples.
 
@@ -171,12 +171,13 @@ def handle_message(message: str, history, pipeline: Optional[RAGPipeline]):
         yield history, pipeline, ""
         return
 
+    scope = selected_docs if (scope_enabled and selected_docs) else None
     history = history + [{"role": "user", "content": message}, {"role": "assistant", "content": ""}]
     yield history, pipeline, ""
 
     last_docs = []
     try:
-        for partial_answer, docs in pipeline.query_stream(message):
+        for partial_answer, docs in pipeline.query_stream(message, scope=scope):
             last_docs = docs
             history[-1] = {"role": "assistant", "content": partial_answer}
             yield history, pipeline, ""
@@ -248,7 +249,12 @@ def build_app() -> gr.Blocks:
             upload_status = gr.Textbox(label="Index status", interactive=False)
 
         with gr.Accordion("Loaded documents", open=False):
-            doc_list = gr.CheckboxGroup(label="Select document(s) to remove individually", choices=[])
+            doc_list = gr.CheckboxGroup(label="Select document(s)", choices=[])
+            scope_checkbox = gr.Checkbox(
+                label="Answer using only the selected document(s) above",
+                value=False,
+                info="Leave unchecked to search all loaded documents.",
+            )
             remove_selected_btn = gr.Button("Remove selected", size="sm")
 
         with gr.Accordion("Advanced settings", open=False):
@@ -304,12 +310,12 @@ def build_app() -> gr.Blocks:
         )
         submit_btn.click(
             handle_message,
-            inputs=[question_box, chatbot, pipeline_state],
+            inputs=[question_box, chatbot, pipeline_state, doc_list, scope_checkbox],
             outputs=[chatbot, pipeline_state, question_box],
         )
         question_box.submit(
             handle_message,
-            inputs=[question_box, chatbot, pipeline_state],
+            inputs=[question_box, chatbot, pipeline_state, doc_list, scope_checkbox],
             outputs=[chatbot, pipeline_state, question_box],
         )
         clear_btn.click(handle_clear, inputs=[pipeline_state], outputs=[chatbot, pipeline_state])

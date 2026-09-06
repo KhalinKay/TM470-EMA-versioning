@@ -225,7 +225,10 @@ p("The completed application is a Python program with a Gradio web interface. Us
   "model via Ollama, streaming the answer back as it is generated. The answer is "
   "returned with a source citation and an inspectable panel of the retrieved "
   "passages, and a conversation history is maintained so that follow-up questions can "
-  "refer to earlier turns. Section 4 describes the implementation in full.")
+  "refer to earlier turns. Retrieval can also be restricted to a chosen subset of the "
+  "loaded documents, so a user can deliberately narrow a question to one source "
+  "without removing the others from the index. Section 4 describes the implementation "
+  "in full.")
 
 h2("1.9 Will the solution be within the specialism route of my degree?")
 p("Yes. The project sits within the AI and Data Science route, covering natural "
@@ -610,6 +613,25 @@ p("An adjustable 'top_k' control was also added to the interface, exposing the "
   "Finally, a 'Download transcript' action exports the current conversation as a "
   "plain text file, so a set of grounded answers can be kept as revision notes "
   "outside the application.")
+
+h3("Document-Scoped Retrieval")
+p("A single FAISS index mixes chunks from every uploaded document, which is efficient "
+  "but means a question can retrieve context from a document the user did not intend, "
+  "particularly once several unrelated study packs have accumulated in one session. "
+  "The same checklist used for per-document removal now doubles as a scope selector: "
+  "an 'Answer using only the selected document(s) above' toggle restricts retrieval to "
+  "the checked filenames by filtering on the source metadata already recorded against "
+  "each chunk, leaving the toggle unchecked to search the whole index as before. This "
+  "reuses the FAISS similarity search's existing metadata filter argument rather than "
+  "maintaining a separate index per document, so no additional storage or re-embedding "
+  "is required.")
+p("The declining behaviour described in Section 4.1 still applies within a restricted "
+  "scope: if the checked document does not cover a question, the answer is declined "
+  "rather than falling back to the wider index, confirmed by asking a question covered "
+  "only in a different loaded document while the scope was restricted. This gives a "
+  "user a way to deliberately narrow revision to one source, for example a single "
+  "week's reading, while keeping the same grounding guarantee that made the assistant "
+  "trustworthy in the first place.")
 
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
@@ -1105,6 +1127,23 @@ log_entries = [
      "core pipeline earlier in the project, meant each addition could be verified in "
      "isolation before moving to the next. [STUDENT TO CONFIRM: complete this entry "
      "with the exact date range once finalised.]"),
+    ("Week 20", "[DATES]",
+     "Continued the enhancement phase with a second quality-of-life addition: "
+     "document-scoped retrieval, letting a user restrict a question to a chosen "
+     "subset of the loaded documents rather than always searching the whole FAISS "
+     "index. This reused the FAISS similarity search's existing metadata filter "
+     "argument, matching on the source filename already recorded against each chunk, "
+     "so no additional storage or re-embedding was needed. The same checklist used "
+     "for per-document removal was reused as the scope selector to avoid duplicating "
+     "the document list in the interface. Two new unit tests were added confirming "
+     "that a scoped retrieval only returns chunks from the selected document and that "
+     "a scoped query only cites that document, and verified live in the browser by "
+     "restricting scope to one sample document and confirming a question covered only "
+     "in a different document was correctly declined rather than answered from "
+     "outside the chosen scope. What went well: the FAISS filter argument accepts a "
+     "plain callable over chunk metadata, so the feature needed no changes to how "
+     "documents are chunked, embedded or stored. [STUDENT TO CONFIRM: complete this "
+     "entry with the exact date range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:

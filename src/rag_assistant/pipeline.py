@@ -105,10 +105,20 @@ class RAGPipeline:
         else:
             self.doc_chunk_ids = {}
 
-    def retrieve(self, question: str) -> List[Document]:
+    def retrieve(self, question: str, scope: Optional[List[str]] = None) -> List[Document]:
+        """Retrieve the top_k most relevant chunks, optionally restricted to a subset
+        of loaded documents (matched by filename, as tracked in doc_chunk_ids).
+        """
         if self.index is None:
             raise RuntimeError("No index loaded. Ingest or load documents first.")
-        return self.index.similarity_search(question, k=self.settings.top_k)
+        if not scope:
+            return self.index.similarity_search(question, k=self.settings.top_k)
+        allowed = set(scope)
+
+        def _in_scope(metadata: dict) -> bool:
+            return Path(metadata.get("source", "")).name in allowed
+
+        return self.index.similarity_search(question, k=self.settings.top_k, filter=_in_scope)
 
     def generate(self, question: str, docs: List[Document]) -> str:
         context = format_context(docs)
@@ -143,23 +153,23 @@ class RAGPipeline:
                 seen.append(citation)
         return "\n".join(seen)
 
-    def query(self, question: str) -> Tuple[str, List[Document]]:
+    def query(self, question: str, scope: Optional[List[str]] = None) -> Tuple[str, List[Document]]:
         """Retrieve relevant chunks, generate a grounded answer, and append citations."""
-        docs = self.retrieve(question)
+        docs = self.retrieve(question, scope=scope)
         answer = self.generate(question, docs)
         citations = self._citations_block(docs)
         full_answer = f"{answer}\n\n{citations}" if citations else answer
         self.memory.add_turn(question, full_answer)
         return full_answer, docs
 
-    def query_stream(self, question: str) -> Iterator[Tuple[str, List[Document]]]:
+    def query_stream(self, question: str, scope: Optional[List[str]] = None) -> Iterator[Tuple[str, List[Document]]]:
         """Retrieve context once, then yield the growing answer as it streams in.
 
         Conversation memory is only updated once generation is complete, on the
         final yield, so a mid-stream read never sees a partial answer recorded
         as history.
         """
-        docs = self.retrieve(question)
+        docs = self.retrieve(question, scope=scope)
         answer_so_far = ""
         for piece in self.generate_stream(question, docs):
             answer_so_far += piece
