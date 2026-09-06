@@ -28,7 +28,7 @@ from langchain_ollama import ChatOllama
 from src.rag_assistant.config import SETTINGS
 from src.rag_assistant.ingestion import load_documents, split_documents
 from src.rag_assistant.indexing import get_embeddings, build_index
-from src.rag_assistant.prompts import SYSTEM_PROMPT
+from src.rag_assistant.prompts import SYSTEM_PROMPT, CONCISE_INSTRUCTION
 from evaluation.test_questions import TEST_QUESTIONS
 
 CHUNK_SIZES = [256, 512, 1024]
@@ -57,7 +57,12 @@ class EvaluatedRAG:
     @instrument(span_type=SpanAttributes.SpanType.GENERATION)
     def generate(self, query: str, context_list: List[str]) -> str:
         context = "\n\n".join(context_list)
-        prompt = SYSTEM_PROMPT.format(context=context, history="(no previous conversation)", question=query)
+        prompt = SYSTEM_PROMPT.format(
+            context=context,
+            history="(no previous conversation)",
+            question=query,
+            length_instruction=CONCISE_INSTRUCTION,
+        )
         response = self.llm.invoke(prompt)
         return str(getattr(response, "content", response)).strip()
 

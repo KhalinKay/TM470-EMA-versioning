@@ -702,6 +702,28 @@ p("The interface now also reports when a document has been replaced this way, ra
   "wording and its single citation, with the index status message confirming which "
   "filename had been replaced.")
 
+h3("Answer Style")
+p("The system prompt's third rule, previously a fixed instruction to be concise, is "
+  "now one of two interchangeable instructions selected by a new 'Answer style' "
+  "control in Advanced settings: concise, the existing default, or detailed, which "
+  "asks the model to cover relevant background and reasoning across multiple "
+  "sentences or paragraphs rather than a single short line. Both variants keep the "
+  "same grounding and citation rules unchanged; only the length and depth of the "
+  "answer itself is affected. This gives a user a way to ask for a fuller "
+  "explanation when studying a topic in depth, without having to rephrase the "
+  "question itself to request more detail.")
+p("The choice is stored on the same shared settings object used for the generation "
+  "model and chunk count, following the same pattern established for the model "
+  "selector: a choice made before any document is loaded is remembered on the "
+  "shared settings for the pipeline created afterwards, and a choice made once a "
+  "pipeline exists updates it directly. Two new unit tests confirm the prompt sent "
+  "to the model contains the expected instruction for each style, and two further "
+  "interface-level tests cover both branches of the setting-versus-pipeline logic, "
+  "mirroring the tests written for the model selector. This was confirmed live in "
+  "the browser by switching to the detailed style, loading the sample documents, "
+  "and comparing the resulting answer's length and structure against an equivalent "
+  "concise answer asked earlier in the session.")
+
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
   "system. It scores three metrics between 0 and 1: Answer Relevance, whether the "
@@ -1291,6 +1313,26 @@ log_entries = [
      "first fix alone was incomplete once the within-call case was considered, "
      "which a purely mental review of the diff had missed. [STUDENT TO CONFIRM: "
      "complete this entry with the exact date range once finalised.]"),
+    ("Week 25", "[DATES]",
+     "Added an answer-style control, letting a user choose between the existing "
+     "concise instruction and a new detailed instruction in the system prompt's "
+     "third rule, without changing anything else about grounding or citation "
+     "behaviour. The choice is stored on the same shared settings object used for "
+     "the generation model and chunk count, following the pattern already "
+     "established for the model selector, including the same before-any-pipeline "
+     "and after-a-pipeline-exists cases. The evaluation harness was updated to pass "
+     "the default concise instruction explicitly, since the prompt template gained "
+     "a new placeholder that its own call site had to satisfy. Four new unit tests "
+     "were added: two confirming the prompt sent to the model contains the correct "
+     "instruction for each style, and two covering the interface-level setting-"
+     "versus-pipeline logic. Confirmed live in the browser by switching to the "
+     "detailed style, loading the sample documents, and comparing the length and "
+     "structure of the resulting answer against an earlier concise answer in the "
+     "same session. What went well: reusing the existing model-selector pattern for "
+     "where a setting is stored meant no new state-handling logic had to be "
+     "designed from scratch, only a new setting name and a new UI control needed "
+     "to be added. [STUDENT TO CONFIRM: complete this entry with the exact date "
+     "range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:

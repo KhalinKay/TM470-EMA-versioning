@@ -159,6 +159,22 @@ def handle_top_k_change(value, pipeline: Optional[RAGPipeline]):
     return pipeline
 
 
+def handle_answer_style_change(style: str, pipeline: Optional[RAGPipeline]):
+    """Switch between a short, direct answer and a fuller, more explanatory one.
+
+    Applies to subsequent questions only; like the model dropdown, the choice is
+    remembered on the shared settings when no pipeline exists yet (no documents
+    loaded), so it still takes effect once one is created.
+    """
+    if not style:
+        return pipeline
+    if pipeline is not None:
+        pipeline.settings.answer_style = style
+    else:
+        SETTINGS.answer_style = style
+    return pipeline
+
+
 def handle_model_choices():
     """Populate the generation model dropdown from whatever is actually pulled in
     the local Ollama server, re-checked on every page load like the connection
@@ -360,6 +376,13 @@ def build_app() -> gr.Blocks:
                 info="Models currently pulled in the local Ollama server. The embedding model stays fixed, "
                      "so switching this does not require re-embedding any loaded documents.",
             )
+            answer_style_radio = gr.Radio(
+                choices=[("Concise", "concise"), ("Detailed", "detailed")],
+                value=SETTINGS.answer_style,
+                label="Answer style",
+                info="Detailed answers cover more background and reasoning; concise answers stay short and direct. "
+                     "Applies to the next question asked.",
+            )
 
         chatbot = gr.Chatbot(label="Conversation", height=450)
         question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
@@ -408,6 +431,11 @@ def build_app() -> gr.Blocks:
         model_dropdown.change(
             handle_model_change,
             inputs=[model_dropdown, pipeline_state],
+            outputs=[pipeline_state],
+        )
+        answer_style_radio.change(
+            handle_answer_style_change,
+            inputs=[answer_style_radio, pipeline_state],
             outputs=[pipeline_state],
         )
         submit_btn.click(

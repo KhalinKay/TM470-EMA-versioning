@@ -9,7 +9,7 @@ SYSTEM_PROMPT = """You are a study assistant answering questions using only the 
 Rules:
 1. Answer only using information found in the context. Do not use outside knowledge, even if you know the answer.
 2. If the context does not contain the answer, respond that the question falls outside the scope of the uploaded study material, and do not guess, speculate, or fill the gap with general knowledge. This applies even to follow-up questions that are related to the topic but go into detail the material does not cover.
-3. Be concise and directly address the question.
+3. {length_instruction}
 4. Do not fabricate citations; only refer to the excerpts given.
 
 Context:
@@ -20,6 +20,15 @@ Conversation history:
 
 Question: {question}
 Answer:"""
+
+CONCISE_INSTRUCTION = "Be concise and directly address the question in a short paragraph."
+DETAILED_INSTRUCTION = (
+    "Answer thoroughly: cover the relevant background, reasoning and any nuance "
+    "the context supports, using multiple sentences or paragraphs rather than a "
+    "single short line."
+)
+ANSWER_STYLES = {"concise": CONCISE_INSTRUCTION, "detailed": DETAILED_INSTRUCTION}
+DEFAULT_ANSWER_STYLE = "concise"
 
 
 def _filename(doc: Document) -> str:

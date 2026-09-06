@@ -22,6 +22,9 @@ class Settings:
     chunk_overlap: int = _int_env("CHUNK_OVERLAP", 64)
     top_k: int = _int_env("TOP_K", 4)
 
+    # "concise" (default) or "detailed"; see prompts.ANSWER_STYLES.
+    answer_style: str = os.getenv("ANSWER_STYLE", "concise")
+
     index_dir: str = os.getenv("INDEX_DIR", "data/faiss_index")
 
     memory_max_turns: int = _int_env("MEMORY_MAX_TURNS", 4)

@@ -10,7 +10,7 @@ from .config import Settings, SETTINGS
 from .ingestion import load_documents, split_documents
 from .indexing import get_embeddings, build_index, save_index, load_index
 from .memory import ConversationMemory
-from .prompts import SYSTEM_PROMPT, format_context, format_citation
+from .prompts import SYSTEM_PROMPT, ANSWER_STYLES, CONCISE_INSTRUCTION, format_context, format_citation
 
 
 class RAGPipeline:
@@ -167,7 +167,10 @@ class RAGPipeline:
     def generate(self, question: str, docs: List[Document]) -> str:
         context = format_context(docs)
         history = self.memory.as_text()
-        prompt = SYSTEM_PROMPT.format(context=context, history=history, question=question)
+        length_instruction = ANSWER_STYLES.get(self.settings.answer_style, CONCISE_INSTRUCTION)
+        prompt = SYSTEM_PROMPT.format(
+            context=context, history=history, question=question, length_instruction=length_instruction
+        )
         response = self.llm.invoke(prompt)
         content = getattr(response, "content", response)
         return str(content).strip()
@@ -180,7 +183,10 @@ class RAGPipeline:
         """
         context = format_context(docs)
         history = self.memory.as_text()
-        prompt = SYSTEM_PROMPT.format(context=context, history=history, question=question)
+        length_instruction = ANSWER_STYLES.get(self.settings.answer_style, CONCISE_INSTRUCTION)
+        prompt = SYSTEM_PROMPT.format(
+            context=context, history=history, question=question, length_instruction=length_instruction
+        )
         if not hasattr(self.llm, "stream"):
             yield self.generate(question, docs)
             return

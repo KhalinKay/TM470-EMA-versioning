@@ -205,6 +205,33 @@ def test_ingesting_two_paths_with_the_same_filename_in_one_call_keeps_only_the_l
     assert "Source: notes.txt" in answer
 
 
+def test_answer_style_defaults_to_concise_instruction_in_prompt():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    pipeline.query("What is RAG?")
+
+    assert "Be concise and directly address the question" in pipeline.llm.last_prompt
+    assert "Answer thoroughly" not in pipeline.llm.last_prompt
+
+
+def test_detailed_answer_style_changes_the_prompt_instruction():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    pipeline.settings.answer_style = "detailed"
+    pipeline.query("What is RAG?")
+
+    assert "Answer thoroughly" in pipeline.llm.last_prompt
+    assert "Be concise and directly address the question" not in pipeline.llm.last_prompt
+
+
 def test_save_and_load_round_trip_preserves_documents():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:
