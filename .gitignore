@@ -1,0 +1,27 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# Data (sample docs are shipped content and are tracked; generated artifacts are not)
+data/faiss_index/*
+!data/faiss_index/.gitkeep
+data/eval_results/*
+!data/eval_results/.gitkeep
+
+# TruLens local database
+*.sqlite
+default.sqlite
+
+# OS/editor
+.DS_Store
+.vscode/
