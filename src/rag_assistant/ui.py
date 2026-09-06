@@ -62,13 +62,18 @@ def handle_upload(files, pipeline: Optional[RAGPipeline]):
     if connection_error:
         return connection_error, pipeline, _doc_choices(pipeline)
     pipeline = pipeline or _new_pipeline()
+    paths = _file_paths(files)
     try:
-        num_chunks = pipeline.ingest(_file_paths(files))
+        num_chunks = pipeline.ingest(paths)
     except Exception as exc:  # surfaced to the user rather than crashing the UI
         return f"Failed to process documents: {exc}", pipeline, _doc_choices(pipeline)
+    replaced_note = ""
+    if pipeline.last_replaced_documents:
+        replaced_note = f" Replaced existing version(s) of: {', '.join(pipeline.last_replaced_documents)}."
+    num_documents = len({Path(p).name for p in paths})
     return (
-        f"Added {len(files)} document(s) ({num_chunks} new chunks, {pipeline.total_chunks} total in the index). "
-        "Ask a question below.",
+        f"Added {num_documents} document(s) ({num_chunks} new chunks, {pipeline.total_chunks} total in the index)."
+        f"{replaced_note} Ask a question below.",
         pipeline,
         _doc_choices(pipeline),
     )
@@ -87,9 +92,12 @@ def handle_load_samples(pipeline: Optional[RAGPipeline]):
     except Exception as exc:
         return f"Failed to load sample documents: {exc}", pipeline, _doc_choices(pipeline)
     names = ", ".join(Path(p).name for p in paths)
+    replaced_note = ""
+    if pipeline.last_replaced_documents:
+        replaced_note = f" Replaced existing version(s) of: {', '.join(pipeline.last_replaced_documents)}."
     return (
-        f"Loaded sample documents ({names}): {num_chunks} new chunks, {pipeline.total_chunks} total in the index. "
-        "Try one of the example questions below, or ask your own.",
+        f"Loaded sample documents ({names}): {num_chunks} new chunks, {pipeline.total_chunks} total in the index."
+        f"{replaced_note} Try one of the example questions below, or ask your own.",
         pipeline,
         _doc_choices(pipeline),
     )

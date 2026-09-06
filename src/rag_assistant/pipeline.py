@@ -32,6 +32,10 @@ class RAGPipeline:
         # Maps a source filename to the FAISS chunk ids it contributed, so a single
         # document can be removed from the index without rebuilding it from scratch.
         self.doc_chunk_ids: Dict[str, List[str]] = {}
+        # Filenames replaced by the most recent ingest() call (same name re-uploaded),
+        # so the UI can tell a user their older version was swapped out rather than
+        # silently duplicated in the index.
+        self.last_replaced_documents: List[str] = []
 
     def set_llm_model(self, model_name: str) -> None:
         """Switch the generation model for subsequent questions.
@@ -47,18 +51,34 @@ class RAGPipeline:
         """Load, chunk and add the given documents to the index. Returns the newly added chunk count.
 
         Adds to any existing index rather than replacing it, so uploads and the sample
-        pack can be combined in the same session.
+        pack can be combined in the same session. If a filename being ingested matches
+        one already loaded, its previous chunks are removed first, so re-uploading an
+        edited version of a document replaces the old copy instead of duplicating it
+        alongside the new one. This also covers dropping a same-named file into an
+        upload widget that still holds the old one, since Gradio resends every file
+        the widget has ever held, not just the newest one: only the last path for a
+        given filename in this call is kept. Replaced filenames are recorded in
+        `last_replaced_documents` for the caller to report to the user.
         """
-        documents = load_documents(file_paths)
+        deduped_paths: Dict[str, str] = {}
+        for path in file_paths:
+            deduped_paths[Path(path).name] = path
+        documents = load_documents(list(deduped_paths.values()))
         chunks = split_documents(documents, self.settings.chunk_size, self.settings.chunk_overlap)
+        self.last_replaced_documents = []
         if not chunks:
             return 0
+        incoming_names = {Path(chunk.metadata.get("source", "unknown")).name for chunk in chunks}
+        replaced = sorted(incoming_names & self.doc_chunk_ids.keys())
+        for filename in replaced:
+            self._discard_chunks(filename)
         if self.index is None:
             self.index = build_index(chunks, self.embeddings)
             ids = [self.index.index_to_docstore_id[i] for i in range(len(chunks))]
         else:
             ids = self.index.add_documents(chunks)
         self._track_chunk_ids(chunks, ids)
+        self.last_replaced_documents = replaced
         return len(chunks)
 
     def _track_chunk_ids(self, chunks: List[Document], ids: List[str]) -> None:
@@ -83,6 +103,11 @@ class RAGPipeline:
         removed document was the last one in the index, the index is discarded
         entirely so subsequent queries correctly report that nothing is loaded.
         """
+        self._discard_chunks(filename)
+
+    def _discard_chunks(self, filename: str) -> None:
+        """Remove a filename's chunks from the index and stop tracking it, without
+        touching the index at all if that filename was never loaded."""
         ids = self.doc_chunk_ids.pop(filename, None)
         if not ids or self.index is None:
             return

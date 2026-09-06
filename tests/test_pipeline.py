@@ -156,6 +156,55 @@ def test_remove_last_document_discards_index():
     assert pipeline.loaded_documents == []
 
 
+def test_reingesting_same_filename_replaces_rather_than_duplicates_chunks():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+        path.write_text("FAISS is a vector similarity search library. " * 20, encoding="utf-8")
+        second_num_chunks = pipeline.ingest([str(path)])
+
+    assert pipeline.loaded_documents == ["notes.txt"]
+    assert pipeline.total_chunks == second_num_chunks
+    assert pipeline.last_replaced_documents == ["notes.txt"]
+
+    answer, _ = pipeline.query("What is FAISS?")
+    assert "Source: notes.txt" in answer
+
+
+def test_ingesting_a_new_filename_reports_no_replaced_documents():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    assert pipeline.last_replaced_documents == []
+
+
+def test_ingesting_two_paths_with_the_same_filename_in_one_call_keeps_only_the_last():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        old_dir = Path(tmp_dir) / "old"
+        old_dir.mkdir()
+        new_dir = Path(tmp_dir) / "new"
+        new_dir.mkdir()
+        old_path = old_dir / "notes.txt"
+        old_path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        new_path = new_dir / "notes.txt"
+        new_path.write_text("FAISS is a vector similarity search library. " * 20, encoding="utf-8")
+
+        num_chunks = pipeline.ingest([str(old_path), str(new_path)])
+
+    assert pipeline.loaded_documents == ["notes.txt"]
+    assert pipeline.total_chunks == num_chunks
+
+    answer, _ = pipeline.query("What is FAISS?")
+    assert "Source: notes.txt" in answer
+
+
 def test_save_and_load_round_trip_preserves_documents():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:

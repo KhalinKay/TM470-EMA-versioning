@@ -680,6 +680,28 @@ p("A model chosen before any document has been loaded, when no pipeline object y
   "a direct way to compare how different locally available models summarise the same "
   "retrieved passages, without leaving the interface or touching configuration files.")
 
+h3("Duplicate Document Replacement")
+p("Re-ingesting a file with the same name as one already loaded, for example after "
+  "correcting a typo or updating a study document, previously added a second, "
+  "duplicate set of chunks under that filename rather than replacing the first, so "
+  "both the outdated and the corrected wording could be retrieved and cited side by "
+  "side. Ingest now removes any chunks already tracked under an incoming filename "
+  "before adding the new ones, so the newer upload takes over cleanly. The same check "
+  "is applied within a single ingest call, because Gradio's file upload widget resends "
+  "every file it has ever held rather than only the newest one, so dropping a "
+  "corrected file in without first removing the old entry would otherwise send both "
+  "the stale and the corrected copy in the same batch; only the last path for a given "
+  "filename in that batch is kept.")
+p("The interface now also reports when a document has been replaced this way, rather "
+  "than only reporting a chunk count that gives no indication anything was swapped "
+  "out. Three new unit tests cover replacement across separate ingest calls, "
+  "replacement within a single call, and the ordinary case of a genuinely new "
+  "filename reporting no replacement. This was confirmed live in the browser by "
+  "uploading a short file, then uploading a second version of it with different "
+  "wording, and checking that the assistant's answer reflected only the newer "
+  "wording and its single citation, with the index status message confirming which "
+  "filename had been replaced.")
+
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
   "system. It scores three metrics between 0 and 1: Answer Relevance, whether the "
@@ -1249,6 +1271,26 @@ log_entries = [
      "actual running application rather than relying on automated tests alone. "
      "[STUDENT TO CONFIRM: complete this entry with the exact date range once "
      "finalised.]"),
+    ("Week 24", "[DATES]",
+     "Fixed a duplicate-chunk bug found by re-reading the ingestion code rather than "
+     "through live testing: uploading a document with the same filename as one "
+     "already loaded added a second copy of its chunks to the index instead of "
+     "replacing the first, so an outdated and a corrected version of the same "
+     "document could both be retrieved and cited. Ingest now discards any chunks "
+     "already tracked under an incoming filename before adding the replacement, and "
+     "the interface reports which filenames were replaced. While testing this live, "
+     "found a second, related issue: Gradio's upload widget resends every file it "
+     "has ever held on each new upload, not only the newest one, so dropping a "
+     "corrected file in without first removing the old entry sent both copies in a "
+     "single ingest call; fixed by keeping only the last path for a given filename "
+     "within one call. Three new unit tests were added, and the fix was confirmed "
+     "live in the browser by uploading a short file, then uploading a differently "
+     "worded second version under the same name, and checking the assistant's "
+     "answer and citation reflected only the newer wording. What went well: writing "
+     "a test for the exact scenario just fixed, before moving on, caught that the "
+     "first fix alone was incomplete once the within-call case was considered, "
+     "which a purely mental review of the diff had missed. [STUDENT TO CONFIRM: "
+     "complete this entry with the exact date range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:
