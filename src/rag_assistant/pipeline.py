@@ -33,6 +33,16 @@ class RAGPipeline:
         # document can be removed from the index without rebuilding it from scratch.
         self.doc_chunk_ids: Dict[str, List[str]] = {}
 
+    def set_llm_model(self, model_name: str) -> None:
+        """Switch the generation model for subsequent questions.
+
+        Only affects generation: the embedding model stays fixed, since the FAISS
+        index was built with it and switching it would require re-embedding every
+        loaded document.
+        """
+        self.settings.llm_model = model_name
+        self.llm = ChatOllama(model=model_name, base_url=self.settings.ollama_base_url, temperature=0.0)
+
     def ingest(self, file_paths: List[str]) -> int:
         """Load, chunk and add the given documents to the index. Returns the newly added chunk count.
 

@@ -45,6 +45,17 @@ def test_query_before_ingest_raises():
         pass
 
 
+def test_set_llm_model_updates_settings_and_replaces_the_client():
+    pipeline = _pipeline()
+    original_llm = pipeline.llm
+
+    pipeline.set_llm_model("dolphin3:latest")
+
+    assert pipeline.settings.llm_model == "dolphin3:latest"
+    assert pipeline.llm is not original_llm
+    assert pipeline.llm.model == "dolphin3:latest"
+
+
 def test_retrieve_with_scope_only_returns_chunks_from_selected_documents():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:

@@ -10,7 +10,7 @@ from typing import List, Optional
 import gradio as gr
 
 from .config import SETTINGS
-from .health import check_ollama
+from .health import check_ollama, list_ollama_models
 from .indexing import index_exists
 from .pipeline import RAGPipeline
 from .prompts import format_excerpt
@@ -148,6 +148,34 @@ def handle_resume_session(pipeline: Optional[RAGPipeline]):
 def handle_top_k_change(value, pipeline: Optional[RAGPipeline]):
     if pipeline is not None:
         pipeline.settings.top_k = int(value)
+    return pipeline
+
+
+def handle_model_choices():
+    """Populate the generation model dropdown from whatever is actually pulled in
+    the local Ollama server, re-checked on every page load like the connection
+    banner, so a model pulled or removed since the app started is reflected.
+
+    The configured embedding model is excluded: it is used to build the FAISS
+    index and is not a chat model, so selecting it for generation would fail.
+    """
+    embedding_base = SETTINGS.embedding_model.split(":")[0]
+    models = [m for m in list_ollama_models(SETTINGS.ollama_base_url) if m.split(":")[0] != embedding_base]
+    if not models:
+        return gr.update(choices=[SETTINGS.llm_model], value=SETTINGS.llm_model)
+    default = SETTINGS.llm_model if SETTINGS.llm_model in models else models[0]
+    return gr.update(choices=models, value=default)
+
+
+def handle_model_change(model_name: str, pipeline: Optional[RAGPipeline]):
+    if not model_name:
+        return pipeline
+    if pipeline is not None:
+        pipeline.set_llm_model(model_name)
+    else:
+        # No pipeline yet (no documents loaded): remember the choice on the shared
+        # settings so the pipeline created on first upload/sample-load picks it up.
+        SETTINGS.llm_model = model_name
     return pipeline
 
 
@@ -317,6 +345,13 @@ def build_app() -> gr.Blocks:
                 info="Higher values give the model more context per question, at the cost of a longer prompt. "
                      "Applies to the next question asked.",
             )
+            model_dropdown = gr.Dropdown(
+                label="Generation model",
+                choices=[SETTINGS.llm_model],
+                value=SETTINGS.llm_model,
+                info="Models currently pulled in the local Ollama server. The embedding model stays fixed, "
+                     "so switching this does not require re-embedding any loaded documents.",
+            )
 
         chatbot = gr.Chatbot(label="Conversation", height=450)
         question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
@@ -362,6 +397,11 @@ def build_app() -> gr.Blocks:
             inputs=[top_k_slider, pipeline_state],
             outputs=[pipeline_state],
         )
+        model_dropdown.change(
+            handle_model_change,
+            inputs=[model_dropdown, pipeline_state],
+            outputs=[pipeline_state],
+        )
         submit_btn.click(
             handle_message,
             inputs=[question_box, chatbot, pipeline_state, doc_list, scope_checkbox],
@@ -380,6 +420,7 @@ def build_app() -> gr.Blocks:
         clear_btn.click(handle_clear, inputs=[pipeline_state], outputs=[chatbot, pipeline_state])
         download_btn.click(handle_download_transcript, inputs=[chatbot], outputs=[download_btn])
         demo.load(handle_connection_check, outputs=[connection_banner])
+        demo.load(handle_model_choices, outputs=[model_dropdown])
 
     return demo
 

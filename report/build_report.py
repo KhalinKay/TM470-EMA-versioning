@@ -228,8 +228,9 @@ p("The completed application is a Python program with a Gradio web interface. Us
   "refer to earlier turns. Retrieval can also be restricted to a chosen subset of the "
   "loaded documents, so a user can deliberately narrow a question to one source "
   "without removing the others from the index, and any answer can be regenerated in "
-  "place without retyping the question. Section 4 describes the implementation "
-  "in full.")
+  "place without retyping the question. The generation model itself can be switched "
+  "mid-session between whichever models are already pulled locally through Ollama. "
+  "Section 4 describes the implementation in full.")
 
 h2("1.9 Will the solution be within the specialism route of my degree?")
 p("Yes. The project sits within the AI and Data Science route, covering natural "
@@ -660,6 +661,24 @@ p("This is a modest addition, but it closes the gap between what earlier section
   "this report describe FAISS as doing internally and what the interface actually "
   "shows a user, matching the project's general principle that a claim of grounding "
   "should be something a user can inspect directly rather than take on trust.")
+
+h3("Generation Model Selection")
+p("The generation model was previously fixed at startup by the LLM_MODEL "
+  "environment variable, requiring the .env file to be edited and the application "
+  "restarted to try a different locally pulled model. An 'Advanced settings' dropdown "
+  "now lists every model currently pulled in the local Ollama server, read from its "
+  "/api/tags endpoint, and lets a user switch the generation model mid-session "
+  "without restarting the application. The configured embedding model is deliberately "
+  "excluded from this list, since it is not a chat model and was never intended to "
+  "generate answers, only to build the FAISS index; switching it would in any case "
+  "require re-embedding every loaded document, which this control does not attempt.")
+p("A model chosen before any document has been loaded, when no pipeline object yet "
+  "exists to hold it, is remembered on the shared configuration so that the pipeline "
+  "created on the first upload or sample-load picks it up; a model chosen after "
+  "documents are already loaded instead replaces the generation client on the "
+  "existing pipeline directly. Two new unit tests cover both cases. This gives a user "
+  "a direct way to compare how different locally available models summarise the same "
+  "retrieved passages, without leaving the interface or touching configuration files.")
 
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
@@ -1209,6 +1228,27 @@ log_entries = [
      "arguments as the plain search used previously, so no other retrieval logic "
      "needed to change. [STUDENT TO CONFIRM: complete this entry with the exact date "
      "range once finalised.]"),
+    ("Week 23", "[DATES]",
+     "Added a generation model selector, reading the list of models currently "
+     "pulled in the local Ollama server from its /api/tags endpoint and populating "
+     "an 'Advanced settings' dropdown with it on every page load, matching the "
+     "existing pattern used for the connectivity banner. The configured embedding "
+     "model is filtered out of this list, since it is not a chat model. Selecting a "
+     "model rebuilds the pipeline's generation client without affecting the "
+     "embedding client or the FAISS index. Found and fixed a bug during live "
+     "testing: a model chosen before any document was loaded had no visible effect, "
+     "because no pipeline object yet existed to hold the choice and a newly created "
+     "pipeline always read the original default model from configuration. Fixed by "
+     "remembering the choice on the shared configuration object when no pipeline yet "
+     "exists, so the pipeline created on the first upload or sample-load reads the "
+     "chosen model instead of the original default. Two new unit tests cover both "
+     "the case where a pipeline already exists and the case where it does not. What "
+     "went well: this is the second bug in this enhancement phase, after the chat "
+     "message formatting issue in Week 21, that only surfaced under live browser "
+     "testing rather than the unit test suite, reinforcing the value of testing the "
+     "actual running application rather than relying on automated tests alone. "
+     "[STUDENT TO CONFIRM: complete this entry with the exact date range once "
+     "finalised.]"),
 ]
 
 for week, dates, text in log_entries:
