@@ -102,26 +102,26 @@ THEME = gr.themes.Soft(
     link_text_color_dark="#0F6B62",
 )
 
-# Header/hero band and a few small refinements CSS can reach that theme variables
-# cannot (max page width, the hero banner, the footer note). No @import/remote
-# fonts here, in keeping with the fully-offline requirement.
+# Header/hero band, sidebar/chat panel styling and a few small refinements CSS can
+# reach that theme variables cannot (max page width, the hero banner, the footer
+# note). No @import/remote fonts here, in keeping with the fully-offline requirement.
 CUSTOM_CSS = """
-.gradio-container { max-width: 980px !important; margin: 0 auto !important; }
+.gradio-container { max-width: 1180px !important; margin: 0 auto !important; }
+
 #hero {
     background: linear-gradient(135deg, #0F6B62 0%, #134A44 100%);
     border-radius: 16px;
-    padding: 28px 32px;
+    padding: 22px 28px;
     margin-bottom: 6px;
-    box-shadow: 0 4px 14px rgba(15, 107, 98, 0.18);
 }
 #hero h1 {
     font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
     color: #FFFFFF !important;
-    font-size: 1.9rem;
+    font-size: 1.7rem;
     margin: 0 0 6px 0;
     letter-spacing: 0.2px;
 }
-#hero p { color: #DCEFEC !important; margin: 0; font-size: 0.98rem; line-height: 1.5; }
+#hero p { color: #DCEFEC !important; margin: 0; font-size: 0.95rem; line-height: 1.5; max-width: 680px; }
 #hero .badge {
     display: inline-block;
     margin-top: 12px;
@@ -130,9 +130,29 @@ CUSTOM_CSS = """
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.35);
     color: #EAF6F4 !important;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     letter-spacing: 0.3px;
 }
+
+/* Two-pane app shell: a tinted sidebar panel for document/session controls next to
+   a plain chat pane, instead of stacking mismatched-height controls in one row
+   (which left odd blank gaps in the previous single-column layout). */
+#sidebar {
+    background: #F3EDE0;
+    border: 1px solid #E5DCC6;
+    border-radius: 16px;
+    padding: 16px 16px 20px 16px;
+}
+#main-chat { padding-top: 4px; }
+.sidebar-heading {
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-size: 0.72rem !important;
+    font-weight: 600;
+    color: #7A7161 !important;
+    margin: 4px 0 2px 2px !important;
+}
+
 footer#footer-note {
     text-align: center;
     color: #9A9280;
@@ -452,68 +472,72 @@ def build_app() -> gr.Blocks:
             "</div>"
         )
         connection_banner = gr.Markdown(visible=False)
-        with gr.Accordion("Why does it decline some questions?", open=False):
-            gr.Markdown(
-                "This assistant only answers from the documents you have loaded, so every answer can be traced "
-                "back to a source. If you ask something the material does not cover, even a closely related "
-                "follow-up, it will tell you the question is out of scope instead of filling the gap with the "
-                "model's own general knowledge. That guarantee is what makes the citations meaningful: an answer "
-                "is either backed by your material or it is declined, never guessed. To widen what it can "
-                "answer, upload documents that cover the topic you want to ask about."
-            )
         pipeline_state = gr.State(None)
 
-        with gr.Group():
-            with gr.Row():
+        # Two-pane app shell: a narrow sidebar for document/session/settings controls,
+        # and a wide chat pane, rather than stacking every control in one column.
+        with gr.Row(equal_height=False):
+            with gr.Column(scale=1, min_width=320, elem_id="sidebar"):
+                gr.Markdown("Study documents", elem_classes=["sidebar-heading"])
                 file_upload = gr.Files(label="Upload study documents", file_types=[".pdf", ".txt", ".docx"])
-                with gr.Column():
-                    sample_btn = gr.Button("Load sample documents (History of Religion)")
-                    with gr.Row():
-                        save_session_btn = gr.Button("Save session", size="sm")
-                        resume_session_btn = gr.Button("Resume last session", size="sm")
-                    remove_docs_btn = gr.Button("Remove all documents", size="sm")
-                upload_status = gr.Textbox(label="Index status", interactive=False)
+                sample_btn = gr.Button("Load sample documents (History of Religion)")
+                with gr.Row():
+                    save_session_btn = gr.Button("Save session", size="sm")
+                    resume_session_btn = gr.Button("Resume last session", size="sm")
+                remove_docs_btn = gr.Button("Remove all documents", size="sm")
+                upload_status = gr.Textbox(label="Index status", interactive=False, lines=2)
 
-            with gr.Accordion("Loaded documents", open=False):
-                doc_list = gr.CheckboxGroup(label="Select document(s)", choices=[])
-                scope_checkbox = gr.Checkbox(
-                    label="Answer using only the selected document(s) above",
-                    value=False,
-                    info="Leave unchecked to search all loaded documents.",
-                )
-                remove_selected_btn = gr.Button("Remove selected", size="sm")
+                with gr.Accordion("Loaded documents", open=False):
+                    doc_list = gr.CheckboxGroup(label="Select document(s)", choices=[])
+                    scope_checkbox = gr.Checkbox(
+                        label="Answer using only the selected document(s) above",
+                        value=False,
+                        info="Leave unchecked to search all loaded documents.",
+                    )
+                    remove_selected_btn = gr.Button("Remove selected", size="sm")
 
-            with gr.Accordion("Advanced settings", open=False):
-                top_k_slider = gr.Slider(
-                    minimum=1, maximum=10, step=1, value=SETTINGS.top_k,
-                    label="Chunks retrieved per question (top_k)",
-                    info="Higher values give the model more context per question, at the cost of a longer prompt. "
-                         "Applies to the next question asked.",
-                )
-                model_dropdown = gr.Dropdown(
-                    label="Generation model",
-                    choices=[SETTINGS.llm_model],
-                    value=SETTINGS.llm_model,
-                    info="Models currently pulled in the local Ollama server. The embedding model stays fixed, "
-                         "so switching this does not require re-embedding any loaded documents.",
-                )
-                answer_style_radio = gr.Radio(
-                    choices=[("Concise", "concise"), ("Detailed", "detailed")],
-                    value=SETTINGS.answer_style,
-                    label="Answer style",
-                    info="Detailed answers cover more background and reasoning; concise answers stay short and direct. "
-                         "Applies to the next question asked.",
-                )
+                with gr.Accordion("Advanced settings", open=False):
+                    top_k_slider = gr.Slider(
+                        minimum=1, maximum=10, step=1, value=SETTINGS.top_k,
+                        label="Chunks retrieved per question (top_k)",
+                        info="Higher values give the model more context per question, at the cost of a longer prompt. "
+                             "Applies to the next question asked.",
+                    )
+                    model_dropdown = gr.Dropdown(
+                        label="Generation model",
+                        choices=[SETTINGS.llm_model],
+                        value=SETTINGS.llm_model,
+                        info="Models currently pulled in the local Ollama server. The embedding model stays fixed, "
+                             "so switching this does not require re-embedding any loaded documents.",
+                    )
+                    answer_style_radio = gr.Radio(
+                        choices=[("Concise", "concise"), ("Detailed", "detailed")],
+                        value=SETTINGS.answer_style,
+                        label="Answer style",
+                        info="Detailed answers cover more background and reasoning; concise answers stay short and direct. "
+                             "Applies to the next question asked.",
+                    )
 
-        with gr.Group():
-            chatbot = gr.Chatbot(label="Conversation", height=450, elem_id="chatbot")
-            question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
-            gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
-            with gr.Row():
-                submit_btn = gr.Button("Ask", variant="primary")
-                regenerate_btn = gr.Button("Regenerate answer")
-            clear_btn = gr.Button("Clear conversation")
-            download_btn = gr.DownloadButton("Download transcript", size="sm")
+                with gr.Accordion("Why does it decline some questions?", open=False):
+                    gr.Markdown(
+                        "This assistant only answers from the documents you have loaded, so every answer can be "
+                        "traced back to a source. If you ask something the material does not cover, even a closely "
+                        "related follow-up, it will tell you the question is out of scope instead of filling the "
+                        "gap with the model's own general knowledge. That guarantee is what makes the citations "
+                        "meaningful: an answer is either backed by your material or it is declined, never guessed. "
+                        "To widen what it can answer, upload documents that cover the topic you want to ask about."
+                    )
+
+            with gr.Column(scale=2, elem_id="main-chat"):
+                chatbot = gr.Chatbot(label="Conversation", height=560, elem_id="chatbot")
+                question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
+                gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
+                with gr.Row():
+                    submit_btn = gr.Button("Ask", variant="primary")
+                    regenerate_btn = gr.Button("Regenerate answer")
+                with gr.Row():
+                    clear_btn = gr.Button("Clear conversation")
+                    download_btn = gr.DownloadButton("Download transcript", size="sm")
 
         file_upload.upload(
             handle_upload,

@@ -791,6 +791,23 @@ p("Because every font referenced by the theme had to resolve locally rather than
   "and resuming a session, and switching model and answer-style settings, were "
   "each exercised again in a live browser session against the themed interface to "
   "check that nothing had regressed visually or functionally.")
+p("A first pass at the layout stacked every control, upload widget, session buttons "
+  "and index status, in a single row inside one grouped card. Because these three "
+  "controls are naturally very different heights, the shared card's background "
+  "filled the unused space beneath the shorter ones, producing a plain, unexplained "
+  "block of colour that looked like an unfinished section rather than a deliberate "
+  "design choice once seen in the browser rather than in the component code. The "
+  "layout was rebuilt around a two-pane structure instead: a narrower sidebar column "
+  "holding every document, session and settings control stacked vertically, beside "
+  "a wider column dedicated entirely to the conversation. Because each pane's "
+  "height is now set by its own stacked content rather than by the tallest control "
+  "in a shared row, the mismatched-height gap cannot recur, and the sidebar's "
+  "tinted background reads as an intentional panel rather than a stray artefact. "
+  "This is a common structure in comparable chat applications, and was chosen over "
+  "further decoration because it separates configuration from conversation without "
+  "adding visual noise, in keeping with the project's minimalist design goal. The "
+  "full test suite and the same set of live user flows listed above were re-run "
+  "once more after the rebuild to confirm the restructuring was purely visual.")
 
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
@@ -1448,8 +1465,18 @@ log_entries = [
      "each visual bug in the running application and inspecting its computed styles "
      "directly, rather than reasoning about the theme purely from its source code, "
      "found the actual cause of two of the three visual bugs far faster than code "
-     "review alone would have. [STUDENT TO CONFIRM: complete this entry with the "
-     "exact date range once finalised.]"),
+     "review alone would have. Live review of the themed interface afterwards still "
+     "showed one plain colour block, this time beneath the mismatched-height upload "
+     "controls rather than caused by an unset theme variable, so the layout itself "
+     "was rebuilt around a two-pane sidebar-and-conversation structure, each pane "
+     "sized by its own stacked content rather than a shared row of differently "
+     "sized controls. The unit test suite and every live user flow exercised "
+     "earlier in the week were re-run once more after the rebuild. What went well: "
+     "recognising that this final artefact was a layout problem rather than another "
+     "missing colour variable, since it reappeared in a different place after the "
+     "previous fixes, avoided repeating the same colour-variable investigation on "
+     "a bug that colour variables could not actually fix. [STUDENT TO CONFIRM: "
+     "complete this entry with the exact date range once finalised.]"),
 ]
 
 for week, dates, text in log_entries:
