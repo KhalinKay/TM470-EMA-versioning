@@ -184,6 +184,22 @@ def test_ingesting_a_new_filename_reports_no_replaced_documents():
     assert pipeline.last_replaced_documents == []
 
 
+def test_ingest_skips_an_unsupported_file_but_still_ingests_the_rest():
+    pipeline = _pipeline()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        good_path = Path(tmp_dir) / "notes.txt"
+        good_path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        bad_path = Path(tmp_dir) / "notes.md"
+        bad_path.write_text("# heading", encoding="utf-8")
+
+        num_chunks = pipeline.ingest([str(good_path), str(bad_path)])
+
+    assert num_chunks > 0
+    assert pipeline.loaded_documents == ["notes.txt"]
+    assert pipeline.last_failed_documents
+    assert pipeline.last_failed_documents[0][0] == "notes.md"
+
+
 def test_ingesting_two_paths_with_the_same_filename_in_one_call_keeps_only_the_last():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:

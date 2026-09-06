@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.rag_assistant.ingestion import load_document, load_documents, split_documents
+from src.rag_assistant.ingestion import load_document, load_documents, load_documents_tolerant, split_documents
 
 
 def test_load_txt_document():
@@ -31,6 +31,32 @@ def test_load_documents_combines_multiple_files():
         path_b.write_text("Content B", encoding="utf-8")
         docs = load_documents([str(path_a), str(path_b)])
         assert len(docs) == 2
+
+
+def test_load_documents_tolerant_skips_unsupported_files_and_reports_them():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        good_path = Path(tmp_dir) / "notes.txt"
+        good_path.write_text("Good content.", encoding="utf-8")
+        bad_path = Path(tmp_dir) / "notes.md"
+        bad_path.write_text("# heading", encoding="utf-8")
+
+        docs, failures = load_documents_tolerant([str(good_path), str(bad_path)])
+
+    assert len(docs) == 1
+    assert docs[0].page_content == "Good content."
+    assert failures == [("notes.md", failures[0][1])]
+    assert failures[0][1]  # a non-empty error message was recorded
+
+
+def test_load_documents_tolerant_returns_no_failures_when_all_files_load():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("Good content.", encoding="utf-8")
+
+        docs, failures = load_documents_tolerant([str(path)])
+
+    assert len(docs) == 1
+    assert failures == []
 
 
 def test_split_documents_respects_chunk_size():

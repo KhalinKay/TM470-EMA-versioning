@@ -724,6 +724,27 @@ p("The choice is stored on the same shared settings object used for the generati
   "and comparing the resulting answer's length and structure against an equivalent "
   "concise answer asked earlier in the session.")
 
+h3("Tolerant Multi-File Ingestion")
+p("Ingesting a batch of files previously aborted the whole upload the moment any "
+  "single file failed to load, whether an unsupported type or a document that was "
+  "simply corrupted, discarding chunks already extracted from every other, "
+  "perfectly valid file in the same batch. A new filename-and-error-message pair "
+  "is now recorded for each file that fails, and loading continues with whatever "
+  "remains, so one bad file no longer costs a user their entire upload. The "
+  "interface reports which filenames could not be processed and why, alongside "
+  "the existing chunk count and replaced-document notes.")
+p("Two new ingestion-level unit tests confirm a batch with one unsupported file "
+  "still returns the successfully loaded document while reporting the failure, "
+  "and that a fully successful batch reports no failures at all; a further "
+  "pipeline-level test confirms the same behaviour once chunking and indexing are "
+  "involved. Live testing in the browser found that Gradio's own upload widget "
+  "already rejects disallowed extensions before they reach the application, so "
+  "this path is chiefly exercised by a file with a permitted extension that is "
+  "otherwise unreadable; this was confirmed by uploading a .txt file containing "
+  "invalid byte sequences alongside a valid one, and checking that the valid file "
+  "was still ingested and answerable while the corrupted one was named in the "
+  "status message.")
+
 h2("4.3 System Evaluation")
 p("Following tutor feedback on TMA02, TruLens (TruEra, 2024) is used to evaluate the "
   "system. It scores three metrics between 0 and 1: Answer Relevance, whether the "
@@ -1333,6 +1354,28 @@ log_entries = [
      "designed from scratch, only a new setting name and a new UI control needed "
      "to be added. [STUDENT TO CONFIRM: complete this entry with the exact date "
      "range once finalised.]"),
+    ("Week 26", "[DATES]",
+     "Made multi-file ingestion tolerant of individual file failures: previously, "
+     "one unsupported or corrupted file in an upload batch aborted ingestion "
+     "entirely, discarding chunks already extracted from every other valid file "
+     "in the same batch. A new ingestion helper now loads each file independently, "
+     "catching and recording a filename-and-error-message pair for any that fail, "
+     "so the rest of the batch is still ingested; the existing strict version used "
+     "by the evaluation harness was left unchanged. The interface now reports "
+     "which filenames could not be processed and why, alongside the existing "
+     "chunk-count and replaced-document messaging. Four new unit tests were added "
+     "covering the ingestion helper directly and the pipeline's ingest method with "
+     "a mixed batch of one good and one unsupported file. Live testing in the "
+     "browser found that Gradio's own upload widget already blocks disallowed "
+     "extensions client-side before they reach the application, so the scenario "
+     "was instead exercised with a permitted .txt extension containing invalid "
+     "byte sequences alongside a valid file, confirming the valid file was still "
+     "ingested and answerable while the corrupted one was named in the status "
+     "message. What went well: designing the test for the ingestion helper before "
+     "wiring it into the pipeline made the pipeline-level test straightforward, "
+     "since only the mixed-batch scenario needed checking again at that layer. "
+     "[STUDENT TO CONFIRM: complete this entry with the exact date range once "
+     "finalised.]"),
 ]
 
 for week, dates, text in log_entries:

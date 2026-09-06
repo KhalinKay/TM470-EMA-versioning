@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from langchain_ollama import ChatOllama
 
 from .config import Settings, SETTINGS
-from .ingestion import load_documents, split_documents
+from .ingestion import load_documents_tolerant, split_documents
 from .indexing import get_embeddings, build_index, save_index, load_index
 from .memory import ConversationMemory
 from .prompts import SYSTEM_PROMPT, ANSWER_STYLES, CONCISE_INSTRUCTION, format_context, format_citation
@@ -36,6 +36,9 @@ class RAGPipeline:
         # so the UI can tell a user their older version was swapped out rather than
         # silently duplicated in the index.
         self.last_replaced_documents: List[str] = []
+        # (filename, error message) pairs for files the most recent ingest() call
+        # could not load, so one bad file in a batch does not silently drop the rest.
+        self.last_failed_documents: List[Tuple[str, str]] = []
 
     def set_llm_model(self, model_name: str) -> None:
         """Switch the generation model for subsequent questions.
@@ -59,11 +62,17 @@ class RAGPipeline:
         the widget has ever held, not just the newest one: only the last path for a
         given filename in this call is kept. Replaced filenames are recorded in
         `last_replaced_documents` for the caller to report to the user.
+
+        A file that fails to load (an unsupported type or a corrupted document) is
+        skipped rather than aborting the whole batch, so the rest of a multi-file
+        upload still succeeds; skipped filenames and their errors are recorded in
+        `last_failed_documents`.
         """
         deduped_paths: Dict[str, str] = {}
         for path in file_paths:
             deduped_paths[Path(path).name] = path
-        documents = load_documents(list(deduped_paths.values()))
+        documents, failures = load_documents_tolerant(list(deduped_paths.values()))
+        self.last_failed_documents = failures
         chunks = split_documents(documents, self.settings.chunk_size, self.settings.chunk_overlap)
         self.last_replaced_documents = []
         if not chunks:

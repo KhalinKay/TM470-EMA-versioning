@@ -70,10 +70,14 @@ def handle_upload(files, pipeline: Optional[RAGPipeline]):
     replaced_note = ""
     if pipeline.last_replaced_documents:
         replaced_note = f" Replaced existing version(s) of: {', '.join(pipeline.last_replaced_documents)}."
+    failed_note = ""
+    if pipeline.last_failed_documents:
+        failed_list = "; ".join(f"{name} ({error})" for name, error in pipeline.last_failed_documents)
+        failed_note = f" Could not process: {failed_list}."
     num_documents = len({Path(p).name for p in paths})
     return (
         f"Added {num_documents} document(s) ({num_chunks} new chunks, {pipeline.total_chunks} total in the index)."
-        f"{replaced_note} Ask a question below.",
+        f"{replaced_note}{failed_note} Ask a question below.",
         pipeline,
         _doc_choices(pipeline),
     )
@@ -95,9 +99,13 @@ def handle_load_samples(pipeline: Optional[RAGPipeline]):
     replaced_note = ""
     if pipeline.last_replaced_documents:
         replaced_note = f" Replaced existing version(s) of: {', '.join(pipeline.last_replaced_documents)}."
+    failed_note = ""
+    if pipeline.last_failed_documents:
+        failed_list = "; ".join(f"{name} ({error})" for name, error in pipeline.last_failed_documents)
+        failed_note = f" Could not process: {failed_list}."
     return (
         f"Loaded sample documents ({names}): {num_chunks} new chunks, {pipeline.total_chunks} total in the index."
-        f"{replaced_note} Try one of the example questions below, or ask your own.",
+        f"{replaced_note}{failed_note} Try one of the example questions below, or ask your own.",
         pipeline,
         _doc_choices(pipeline),
     )

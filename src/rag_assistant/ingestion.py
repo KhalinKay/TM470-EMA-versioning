@@ -6,7 +6,7 @@ RecursiveCharacterTextSplitter, which the TruLens chunk-size evaluation
 confirmed performs best at 512 characters / 64 overlap.
 """
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
@@ -37,6 +37,23 @@ def load_documents(file_paths: List[str]) -> List[Document]:
     for path in file_paths:
         documents.extend(load_document(path))
     return documents
+
+
+def load_documents_tolerant(file_paths: List[str]) -> Tuple[List[Document], List[Tuple[str, str]]]:
+    """Load multiple documents, skipping any that fail rather than aborting the
+    whole batch. Returns the successfully loaded documents alongside a
+    (filename, error message) pair for each file that could not be loaded, so a
+    single unsupported or corrupted file in a multi-file upload does not prevent
+    the rest of the batch from being ingested.
+    """
+    documents: List[Document] = []
+    failures: List[Tuple[str, str]] = []
+    for path in file_paths:
+        try:
+            documents.extend(load_document(path))
+        except Exception as exc:  # noqa: BLE001 - any loader failure should be reported, not just ValueError
+            failures.append((Path(path).name, str(exc)))
+    return documents, failures
 
 
 def split_documents(
