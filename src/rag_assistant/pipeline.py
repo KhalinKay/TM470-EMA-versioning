@@ -10,7 +10,7 @@ from .config import Settings, SETTINGS
 from .ingestion import load_documents_tolerant, split_documents
 from .indexing import get_embeddings, build_index, save_index, load_index
 from .memory import ConversationMemory
-from .prompts import SYSTEM_PROMPT, ANSWER_STYLES, CONCISE_INSTRUCTION, format_context, format_citation
+from .prompts import SYSTEM_PROMPT, ANSWER_STYLES, CONCISE_INSTRUCTION, format_context, format_citation, is_decline
 
 
 class RAGPipeline:
@@ -213,10 +213,16 @@ class RAGPipeline:
         return "\n".join(seen)
 
     def query(self, question: str, scope: Optional[List[str]] = None) -> Tuple[str, List[Document]]:
-        """Retrieve relevant chunks, generate a grounded answer, and append citations."""
+        """Retrieve relevant chunks, generate a grounded answer, and append citations.
+
+        No citations are appended if the model declined the question, since the
+        retrieved chunks were the nearest available by distance but not actually
+        used to answer, and citing them would misrepresent the decline as an
+        answer grounded in those sources.
+        """
         docs = self.retrieve(question, scope=scope)
         answer = self.generate(question, docs)
-        citations = self._citations_block(docs)
+        citations = "" if is_decline(answer) else self._citations_block(docs)
         full_answer = f"{answer}\n\n{citations}" if citations else answer
         self.memory.add_turn(question, full_answer)
         return full_answer, docs
@@ -233,8 +239,9 @@ class RAGPipeline:
         for piece in self.generate_stream(question, docs):
             answer_so_far += piece
             yield answer_so_far, docs
-        citations = self._citations_block(docs)
-        full_answer = f"{answer_so_far.strip()}\n\n{citations}" if citations else answer_so_far.strip()
+        stripped_answer = answer_so_far.strip()
+        citations = "" if is_decline(stripped_answer) else self._citations_block(docs)
+        full_answer = f"{stripped_answer}\n\n{citations}" if citations else stripped_answer
         self.memory.add_turn(question, full_answer)
         yield full_answer, docs
 

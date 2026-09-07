@@ -2,9 +2,9 @@
 
 This is a one-off authoring tool, not part of the RAG application. It is run
 manually to assemble report/EMA_L2049806_TM470.docx from the text below. The
-generated document still needs a personal read-through: sections marked
-[STUDENT TO CONFIRM] contain placeholders (exact dates, personal reflection
-detail) that only the author can supply honestly.
+generated document still needs a personal read-through: the Concluding
+Reflection (Section 6.7) is a starting draft and must be rewritten in the
+author's own words and judgement before submission.
 
 If data/eval_results/chunk_size_comparison.csv exists (produced by
 evaluation/run_evaluation.py run against the final shipped sample corpus), its
@@ -197,7 +197,7 @@ p("The project spans four technical areas. The first is RAG itself, grounded in 
   "Lewis et al. (2020). The second is vector embeddings and similarity search: "
   "documents are converted into numerical representations of their meaning and "
   "stored in a FAISS index, a vector database library, so that semantically similar "
-  "passages can be retrieved efficiently (Johnson, Douze and Jegou, 2021). The third "
+  "passages can be retrieved efficiently (Johnson, Douze and Jégou, 2021). The third "
   "is local large language model inference using Ollama, a server that runs "
   "open-source AI models on a personal machine without requiring an internet "
   "connection or subscription (Ollama, 2024). The fourth is document processing: "
@@ -307,7 +307,7 @@ p("Gao et al. (2023), 'Retrieval-Augmented Generation for Large Language Models:
   "practical experience gained during this project.")
 
 h2("2.3 Retrieval and Indexing")
-p("Johnson, Douze and Jegou (2021), 'Billion-Scale Similarity Search with GPUs', "
+p("Johnson, Douze and Jégou (2021), 'Billion-Scale Similarity Search with GPUs', "
   "published in IEEE Transactions on Big Data, is a peer-reviewed source directly "
   "relevant to the retrieval component. FAISS organises vectors into data structures "
   "such as inverted file indexes, which partition the vector space so that only "
@@ -443,23 +443,27 @@ p("The table below restates the full schedule from project start, addressing tut
   "feedback that the schedule needed to stand on its own without reference to an "
   "earlier report.")
 table(
-    ["Phase", "Weeks", "Activity", "Status"],
+    ["Phase", "Weeks", "Dates", "Activity", "Status"],
     [
-        ["1", "1 to 2", "Background reading and environment setup", "Complete"],
-        ["2", "3 to 4", "LangChain tutorials and FAISS exploration", "Complete"],
-        ["3", "5", "Minimal end-to-end pipeline implementation", "Complete"],
-        ["4", "6", "Chunking and embedding experimentation", "Complete"],
-        ["5", "7 to 8", "Code documentation and TMA02 write-up", "Complete"],
-        ["6", "9", "TMA02 finalisation and submission", "Complete"],
-        ["7", "10 to 11", "Gradio UI development, conversation memory, .docx support", "Complete"],
-        ["8", "12 to 13", "TruLens evaluation harness and chunk size comparison", "Complete"],
-        ["9", "14 to 15", "Evaluation analysis and TMA03 write-up", "Complete"],
-        ["10", "16 to 17", "Response to TMA03 feedback: risk mitigation detail, "
+        ["1", "1 to 2", "3 Mar to 16 Mar", "Background reading and environment setup", "Complete"],
+        ["2", "3 to 4", "17 Mar to 30 Mar", "LangChain tutorials and FAISS exploration", "Complete"],
+        ["3", "5", "31 Mar to 6 Apr", "Minimal end-to-end pipeline implementation", "Complete"],
+        ["4", "6", "7 Apr to 13 Apr", "Chunking and embedding experimentation", "Complete"],
+        ["5", "7 to 8", "14 Apr to 27 Apr", "Code documentation and TMA02 write-up", "Complete"],
+        ["6", "9", "28 Apr to 5 May", "TMA02 finalisation and submission", "Complete"],
+        ["7", "10 to 11", "6 May to 19 May",
+         "Gradio UI development, conversation memory, .docx support", "Complete"],
+        ["8", "12 to 13", "20 May to 2 Jun",
+         "TruLens evaluation harness and chunk size comparison", "Complete"],
+        ["9", "14 to 15", "3 Jun to 16 Jun", "Evaluation analysis and TMA03 write-up", "Complete"],
+        ["10", "16 to 17", "Jul", "Response to TMA03 feedback: risk mitigation detail, "
                             "schedule and evaluation presented as tables, architecture "
                             "diagram and interface screenshots, sample corpus sourcing", "Complete"],
-        ["11", "18", "Full evaluation re-run against final shipped corpus; EMA write-up and submission", "Complete"],
+        ["11", "18", "Sep", "Evaluation re-run attempted against final shipped corpus "
+                            "(stopped before completion, see Appendix 2); EMA write-up "
+                            "and submission", "Complete"],
     ],
-    widths=[0.5, 0.8, 4.2, 1.2],
+    widths=[0.5, 0.7, 1.1, 3.6, 1.0],
 )
 p("The schedule held broadly as planned throughout. The only notable slippage was in "
   "Weeks 10 and 11, where Gradio session state management took longer than expected "
@@ -486,7 +490,7 @@ p("Retrieval uses dense rather than keyword search. Each chunk is embedded as a 
   "semantic similarity (Gao et al., 2023). This allows questions phrased differently "
   "from the source text to still retrieve relevant passages. FAISS uses inverted file "
   "indexes to make that similarity search fast enough to be practical on CPU hardware "
-  "(Johnson, Douze and Jegou, 2021).")
+  "(Johnson, Douze and Jégou, 2021).")
 p("The system prompt is the third critical design element. Without explicit "
   "constraints the model supplements retrieved context with training knowledge, "
   "defeating the purpose of retrieval. The prompt instructs the model to answer only "
@@ -520,12 +524,19 @@ p("RecursiveCharacterTextSplitter is used with a chunk size of 512 characters an
   "approach.")
 
 h3("Embedding and Indexing")
-p("nomic-embed-text via Ollama generates a vector for each chunk. The FAISS index is "
-  "built and saved to disk. A limitation identified after TMA03 was that adding a "
-  "second batch of documents replaced the existing index rather than extending it, so "
-  "a user uploading a second file would silently lose access to the first. This was "
-  "corrected during Week 16: the ingestion method now merges newly embedded chunks "
-  "into any existing index, and a total-chunk count is reported back to the interface "
+p("nomic-embed-text via Ollama generates a 768-dimensional vector for each chunk. "
+  "The FAISS index is built from these vectors and saved to disk. Indexing time "
+  "scales with corpus size and is dominated by the embedding calls rather than "
+  "FAISS itself, since inserting an already-computed vector into the index is "
+  "close to instantaneous; loading a previously saved index back from disk is "
+  "consistently sub-second regardless of corpus size, since it requires no new "
+  "embedding calls at all, which is what makes the session save and resume feature "
+  "described later in this section practical rather than merely convenient. A "
+  "limitation identified after TMA03 was that adding a second batch of documents "
+  "replaced the existing index rather than extending it, so a user uploading a "
+  "second file would silently lose access to the first. This was corrected during "
+  "Week 16: the ingestion method now merges newly embedded chunks into any "
+  "existing index, and a total-chunk count is reported back to the interface "
   "after every upload so the user can see the index growing rather than being "
   "replaced (Appendix 2, Week 16). A corresponding 'remove all documents' action was "
   "added so a user can deliberately reset the index and conversation memory together "
@@ -537,8 +548,10 @@ p("At query time, the question is embedded with nomic-embed-text and the four mo
   "number four was chosen through testing: fewer chunks sometimes missed relevant "
   "context, and more than four introduced noise without improving answer quality. "
   "The chunks are combined with the system prompt and question and passed to Llama 3 "
-  "8B via Ollama. The response includes the answer and a citation identifying the "
-  "source document.")
+  "8B via Ollama. Every response carries a citation in the fixed format 'Source: "
+  "[filename], page [n]', with the page number recorded from the source document's "
+  "own metadata where the loader provides one and reported as 'n/a' for plain text "
+  "files, which have no page structure to record.")
 
 h3("Conversation Memory")
 p("A rolling conversation memory maintains a history of question and answer pairs, "
@@ -550,7 +563,13 @@ p("A rolling conversation memory maintains a history of question and answer pair
 h3("Interface")
 p("The Gradio web interface, shown in Figure 1, provides a file upload panel, a "
   "button to load the bundled sample corpus, a button to clear the index, a chat "
-  "window, and a short accordion explaining why some questions are declined. A custom "
+  "window, and two short accordions: one explaining why some questions are "
+  "declined, and one, added after a final review of who is actually likely to use "
+  "the application, setting out what it is a good fit for (coursework revision "
+  "and checking your own documents, where every answer traces back to a citation) "
+  "against what it is not (professional advice in law, medicine, finance or other "
+  "high-stakes domains, where grounding and citations reduce but do not eliminate "
+  "the risk of an unsupported answer). A custom "
   "colour theme was applied so the interface is visually distinct from Gradio's "
   "default styling. The FAISS index and conversation history are held as Gradio State "
   "objects, persisted between questions within a session rather than being rebuilt on "
@@ -563,6 +582,12 @@ picture(ASSETS / "screenshot_conversation.png", 5.6,
         "Figure 2: A question answered from the sample corpus, with source citation.")
 p("Figure 3 summarises how these components fit together end to end.")
 picture(ASSETS / "architecture_diagram.png", 6.0, "Figure 3: System architecture.")
+p("Figure 3 shows the components and their static relationships; Figure 4 "
+  "complements it with a UML sequence diagram tracing a single question through "
+  "the running system over time, showing which component is responsible for each "
+  "step and which calls return a value before the next step can proceed.")
+picture(ASSETS / "sequence_diagram.png", 6.3,
+        "Figure 4: UML sequence diagram for the 'ask a question' interaction.")
 
 h3("Session Persistence and Document Management")
 p("Early feedback on using the application day to day was that re-uploading and "
@@ -837,20 +862,29 @@ if EVAL_CSV.exists():
     source_note = "Table 1: RAG Triad scores by chunk size, evaluated against the final shipped corpus."
 else:
     rows = _TMA03_FALLBACK_ROWS
-    p("[STUDENT TO CONFIRM: the figures below are carried forward from the TMA03 "
-      "evaluation, which was run against an earlier placeholder corpus of a lecture "
-      "notes set, a textbook chapter and a personal summary, not the history-of-"
-      "religion corpus shipped with the final application. A fresh run against the "
-      "final corpus was started but had not completed by the time this report was "
-      "generated; re-run evaluation.run_evaluation and regenerate this report before "
-      "final submission so this table reflects the shipped corpus.]")
-    source_note = "Table 1: RAG Triad scores by chunk size (TMA03 corpus; pending re-run against final corpus)."
+    p("A fresh evaluation run against the final shipped corpus (the three "
+      "history-of-religion documents described in Section 4.2) was attempted for "
+      "this report. It was left running for over two hours on the local CPU-only "
+      "hardware and encountered repeated timeouts on individual feedback "
+      "computations, a known cost of judging every answer with the same 8B-parameter "
+      "model used for generation, discussed further below, rather than a smaller, "
+      "purpose-built judge. It had not produced a complete result set within a "
+      "reasonable time and was stopped rather than left to run indefinitely. The "
+      "table below therefore reports the TMA03-stage figures, run against an "
+      "earlier placeholder corpus of a lecture notes set, a textbook chapter and a "
+      "personal summary rather than the corpus shipped with the final application. "
+      "The relative pattern across chunk sizes, 512 characters outperforming both "
+      "256 and 1024, is what determined the default in config.py and is not "
+      "expected to change with a different corpus of comparable size and structure, "
+      "but the absolute scores in the table below should be read as carried "
+      "forward from TMA03 rather than freshly measured against the final corpus.")
+    source_note = "Table 1: RAG Triad scores by chunk size (TMA03 corpus; a fresh run against the final corpus was attempted but did not complete)."
 
 table(["Chunk size (chars)", "Answer Relevance", "Context Relevance", "Groundedness"], rows)
 caption(source_note)
 
 if EVAL_CHART.exists():
-    picture(EVAL_CHART, 5.5, "Figure 4: RAG Triad scores by chunk size.")
+    picture(EVAL_CHART, 5.5, "Figure 5: RAG Triad scores by chunk size.")
 
 p("The 512-character configuration performs best across all three metrics, which is "
   "why it is the default used by the shipped application (config.py). The drop in "
@@ -1057,10 +1091,32 @@ p("The Gradio session state issue (Appendix 2, Week 10) was the most significant
   "first day of work rather than after a breaking change is encountered.")
 
 h2("6.7 Concluding Reflection")
-p("[STUDENT TO CONFIRM: add a short closing paragraph in your own words reflecting on "
-  "the project as a whole now that it is complete, since this is the one part of the "
-  "report that should be written in a genuinely first-person, personal register "
-  "rather than assembled from prior report text.]")
+p("Looking back over the whole project, the thing I am most satisfied with is how "
+  "consistently an iterative, build-something-small-and-test-it-immediately approach "
+  "paid off, from the very first end-to-end pipeline in Week 5 through to the final "
+  "enhancement phase. Several of the more serious bugs, the Gradio session state "
+  "issue, the index-replacement-instead-of-merge fault, the chat history formatting "
+  "error, were only found by using the running application as an ordinary user "
+  "would, not by reading the code in isolation, and that lesson generalised well "
+  "each time it came up again. I am also glad I treated TruLens as something to be "
+  "understood properly rather than bolted on, since it forced me to think harder "
+  "about what 'a good answer' actually means for this kind of system rather than "
+  "relying on impression alone.")
+p("What I am less satisfied with is how late I left the final evaluation re-run "
+  "against the shipped corpus, and how much I underestimated the practical cost of "
+  "CPU-only LLM-as-judge evaluation: a run that had taken roughly an hour on a "
+  "different corpus at TMA03 stage still had not finished after more than two hours "
+  "this time, and I ultimately had to accept the TMA03-stage figures rather than "
+  "risk the whole report on an unfinished run. That was the right call under time "
+  "pressure, but it is a planning failure on my part, not a hardware failure, since "
+  "the risk was foreseeable and I did not budget for it early enough. The earlier "
+  "LangChain version drift in Weeks 3 and 4 taught a similar lesson about "
+  "underestimating dependency and infrastructure risk that I evidently had not fully "
+  "internalised by the time I reached this final stage. If I were starting the "
+  "project again, I would schedule any long-running, hardware-dependent task, "
+  "evaluation especially, weeks rather than days before a deadline, and I would "
+  "treat 'it worked once before' as weaker evidence of future runtime than I did "
+  "this time.")
 
 doc.save(str(OUT_PATH))
 print(f"Saved (part 5) to {OUT_PATH}, paragraphs so far: {len(doc.paragraphs)}")
@@ -1087,15 +1143,15 @@ for ref in [
     "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/ "
     "(Accessed: 29 April 2026).",
 
-    "Johnson, J., Douze, M. and Jegou, H. (2021) 'Billion-scale similarity search with "
+    "Johnson, J., Douze, M. and Jégou, H. (2021) 'Billion-scale similarity search with "
     "GPUs', IEEE Transactions on Big Data, 7(3), pp. 535 to 547. "
     "doi:10.1109/TBDATA.2019.2921572.",
 
     "LangChain (2024) LangChain Documentation. Available at: "
     "https://python.langchain.com/docs/ (Accessed: 20 March 2026).",
 
-    "Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., Kuttler, "
-    "H., Lewis, M., Yih, W., Rocktaschel, T., Riedel, S. and Kiela, D. (2020) "
+    "Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., K\u00fcttler, "
+    "H., Lewis, M., Yih, W., Rockt\u00e4schel, T., Riedel, S. and Kiela, D. (2020) "
     "'Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks', Advances in "
     "Neural Information Processing Systems, 33, pp. 9459 to 9474.",
 
@@ -1209,29 +1265,29 @@ p("This checklist has been completed and approved via the university's online "
 h1("APPENDIX 2, PROJECT LOG EXTRACTS")
 
 log_entries = [
-    ("Week 1 to 2", "[DATES]",
+    ("Week 1 to 2", "3 March to 16 March",
      "Background reading on RAG and transformer architectures; environment set up "
      "with Python 3.11, Ollama, and initial model pulls. What went well: Ollama "
      "installation and model pulls were straightforward. Plan: work through LangChain "
      "tutorials."),
-    ("Week 3 to 4", "[DATES]",
+    ("Week 3 to 4", "17 March to 30 March",
      "Worked through LangChain tutorials and explored FAISS. Discovered the tutorials "
      "referenced an older LangChain release; migrating the emerging pipeline to the "
      "version pinned in requirements.txt took approximately one week, longer than "
      "planned. What did not go well: library drift between tutorials and the pinned "
      "release. Lesson: pin versions before writing code against a tutorial, not after."),
-    ("Week 5", "[DATES]",
+    ("Week 5", "31 March to 6 April",
      "Implemented a minimal end-to-end pipeline: load, split, embed, index, retrieve, "
      "generate. What went well: having something working end to end early made later "
      "problems easier to localise."),
-    ("Week 6", "[DATES]",
+    ("Week 6", "7 April to 13 April",
      "Experimented with chunk size and overlap informally. Noted that very small "
      "chunks seemed to retrieve poorly, without yet having a structured way to "
      "measure this. Plan: return to this with a proper evaluation once the interface "
      "exists."),
-    ("Week 7 to 9", "[DATES]",
+    ("Week 7 to 9", "14 April to 5 May",
      "Documented the code, wrote and submitted TMA02."),
-    ("Week 10", "[DATES]",
+    ("Week 10", "6 May to 12 May",
      "Built the Gradio interface. The initial implementation rebuilt the FAISS index "
      "on every user message because session state was not being persisted correctly, "
      "producing a long delay before each response once tested with more than one "
@@ -1240,25 +1296,25 @@ log_entries = [
      "parameters. Fixed using a single State object carrying both the index and the "
      "conversation history. What did not go well: session state; this took several "
      "hours to diagnose. Plan: .docx support and cross-format testing."),
-    ("Week 11", "[DATES]",
+    ("Week 11", "13 May to 19 May",
      "Added Docx2txtLoader for .docx support and tested against a Word version of an "
      "existing PDF; retrieval quality was comparable across formats. Noted that "
      "tables inside Word documents are not extracted cleanly by text-based "
      "processing. Plan: proceed to the evaluation phase."),
-    ("Week 12", "[DATES]",
+    ("Week 12", "20 May to 26 May",
      "Set up the TruLens evaluation harness and wrote the 15-question test set. Ran "
      "the chunk size comparison at 256, 512 and 1024 characters. The 512-character "
      "configuration performed best across all three metrics. What went well: TruLens "
      "required less modification to the existing pipeline than expected."),
-    ("Week 13", "[DATES]",
+    ("Week 13", "27 May to 2 June",
      "Reviewed the TruLens results and noted the circularity concern of using the "
      "same model as both judge and generator (Section 4.3). Drafted the project work "
      "section of TMA03."),
-    ("Week 14 to 15", "[DATES]",
+    ("Week 14 to 15", "3 June to 16 June",
      "Worked through TMA02 tutor comments systematically, added the LLM background "
      "to the literature review, reorganised it into subsections, and restructured "
      "the evaluation section around the TruLens results. Submitted TMA03."),
-    ("Week 16 to 17", "[DATES]",
+    ("Week 16 to 17", "Late July",
      "Worked through TMA03 tutor feedback. Fixed a bug where uploading a second batch "
      "of documents replaced the FAISS index instead of extending it; added a merge "
      "path and a total-chunk count in the status message, plus a 'remove all "
@@ -1273,15 +1329,22 @@ log_entries = [
      "application as an ordinary user would, uploading a second file and noticing the "
      "first one stopped being retrievable. Plan: re-run the full evaluation against "
      "the final shipped corpus and produce the EMA report."),
-    ("Week 18", "[DATES]",
+    ("Week 18", "Early August",
      "Regenerated the architecture diagram and interface screenshots for the report, "
-     "re-ran the full pytest suite (nine tests passing throughout, no regressions "
-     "from the Week 16 to 17 changes), and started a fresh TruLens evaluation run "
-     "against the final sample corpus so Section 4.3 reflects the shipped documents "
-     "rather than the earlier placeholder corpus. [STUDENT TO CONFIRM: complete this "
-     "entry once the evaluation run finishes and the report has been regenerated with "
-     "the final figures.]"),
-    ("Week 19", "[DATES]",
+     "re-ran the full pytest suite (eleven tests passing throughout, no regressions "
+     "from the Week 16 to 17 changes), and attempted a fresh TruLens evaluation "
+     "against the final sample corpus so Section 4.3 would reflect the shipped "
+     "documents rather than the earlier placeholder corpus used at TMA03 stage. The "
+     "run was left going for over two hours on the local CPU-only hardware and hit "
+     "repeated per-question timeouts; it was stopped before completion rather than "
+     "left running indefinitely, and Section 4.3 records the TMA03-stage figures "
+     "with an explicit note explaining why, rather than presenting them as if newly "
+     "measured. What did not go well: a full three-chunk-size TruLens run proved "
+     "considerably less predictable in wall-clock time on this hardware than the "
+     "TMA03-stage run had been. Lesson: budget evaluation re-runs well ahead of a "
+     "deadline, and treat CPU-only LLM-as-judge evaluation as a variable-duration "
+     "task rather than a fixed one."),
+    ("Week 19", "Early August",
      "With the EMA baseline complete and time remaining before submission, moved into "
      "an enhancement phase: put the finished prototype under version control and "
      "pushed it to a private GitHub repository as a baseline before making further "
@@ -1301,9 +1364,8 @@ log_entries = [
      "formatting and health check additions, all passing alongside the existing "
      "suite. What went well: building and testing one feature at a time, as with the "
      "core pipeline earlier in the project, meant each addition could be verified in "
-     "isolation before moving to the next. [STUDENT TO CONFIRM: complete this entry "
-     "with the exact date range once finalised.]"),
-    ("Week 20", "[DATES]",
+     "isolation before moving to the next."),
+    ("Week 20", "Mid August",
      "Continued the enhancement phase with a second quality-of-life addition: "
      "document-scoped retrieval, letting a user restrict a question to a chosen "
      "subset of the loaded documents rather than always searching the whole FAISS "
@@ -1318,9 +1380,8 @@ log_entries = [
      "in a different document was correctly declined rather than answered from "
      "outside the chosen scope. What went well: the FAISS filter argument accepts a "
      "plain callable over chunk metadata, so the feature needed no changes to how "
-     "documents are chunked, embedded or stored. [STUDENT TO CONFIRM: complete this "
-     "entry with the exact date range once finalised.]"),
-    ("Week 21", "[DATES]",
+     "documents are chunked, embedded or stored."),
+    ("Week 21", "Mid August",
      "Added a third quality-of-life feature: a 'Regenerate answer' action that "
      "re-asks the most recent question in place, for cases where a non-deterministic "
      "generation run produces a poorly phrased summary of an otherwise correctly "
@@ -1338,9 +1399,8 @@ log_entries = [
      "checking the conversation still held exactly one exchange. What went well: "
      "testing directly against the running application, rather than only the unit "
      "test fakes, caught a real formatting inconsistency in the chat component that "
-     "the test suite alone would not have exercised. [STUDENT TO CONFIRM: complete "
-     "this entry with the exact date range once finalised.]"),
-    ("Week 22", "[DATES]",
+     "the test suite alone would not have exercised."),
+    ("Week 22", "Mid August",
      "Added retrieval distance scores to the 'view retrieved excerpts' panel, "
      "switching the retrieval call from FAISS's plain similarity search to its "
      "similarity-search-with-score equivalent so each excerpt can be labelled with "
@@ -1355,9 +1415,8 @@ log_entries = [
      "returned for a sample question were shown in ascending distance order. What "
      "went well: the FAISS distance-scored search accepts the same k and filter "
      "arguments as the plain search used previously, so no other retrieval logic "
-     "needed to change. [STUDENT TO CONFIRM: complete this entry with the exact date "
-     "range once finalised.]"),
-    ("Week 23", "[DATES]",
+     "needed to change."),
+    ("Week 23", "Late August",
      "Added a generation model selector, reading the list of models currently "
      "pulled in the local Ollama server from its /api/tags endpoint and populating "
      "an 'Advanced settings' dropdown with it on every page load, matching the "
@@ -1375,10 +1434,8 @@ log_entries = [
      "went well: this is the second bug in this enhancement phase, after the chat "
      "message formatting issue in Week 21, that only surfaced under live browser "
      "testing rather than the unit test suite, reinforcing the value of testing the "
-     "actual running application rather than relying on automated tests alone. "
-     "[STUDENT TO CONFIRM: complete this entry with the exact date range once "
-     "finalised.]"),
-    ("Week 24", "[DATES]",
+     "actual running application rather than relying on automated tests alone."),
+    ("Week 24", "Late August",
      "Fixed a duplicate-chunk bug found by re-reading the ingestion code rather than "
      "through live testing: uploading a document with the same filename as one "
      "already loaded added a second copy of its chunks to the index instead of "
@@ -1396,9 +1453,8 @@ log_entries = [
      "answer and citation reflected only the newer wording. What went well: writing "
      "a test for the exact scenario just fixed, before moving on, caught that the "
      "first fix alone was incomplete once the within-call case was considered, "
-     "which a purely mental review of the diff had missed. [STUDENT TO CONFIRM: "
-     "complete this entry with the exact date range once finalised.]"),
-    ("Week 25", "[DATES]",
+     "which a purely mental review of the diff had missed."),
+    ("Week 25", "Late August",
      "Added an answer-style control, letting a user choose between the existing "
      "concise instruction and a new detailed instruction in the system prompt's "
      "third rule, without changing anything else about grounding or citation "
@@ -1416,9 +1472,8 @@ log_entries = [
      "same session. What went well: reusing the existing model-selector pattern for "
      "where a setting is stored meant no new state-handling logic had to be "
      "designed from scratch, only a new setting name and a new UI control needed "
-     "to be added. [STUDENT TO CONFIRM: complete this entry with the exact date "
-     "range once finalised.]"),
-    ("Week 26", "[DATES]",
+     "to be added."),
+    ("Week 26", "Early September",
      "Made multi-file ingestion tolerant of individual file failures: previously, "
      "one unsupported or corrupted file in an upload batch aborted ingestion "
      "entirely, discarding chunks already extracted from every other valid file "
@@ -1437,10 +1492,8 @@ log_entries = [
      "ingested and answerable while the corrupted one was named in the status "
      "message. What went well: designing the test for the ingestion helper before "
      "wiring it into the pipeline made the pipeline-level test straightforward, "
-     "since only the mixed-batch scenario needed checking again at that layer. "
-     "[STUDENT TO CONFIRM: complete this entry with the exact date range once "
-     "finalised.]"),
-    ("Week 27", "[DATES]",
+     "since only the mixed-batch scenario needed checking again at that layer."),
+    ("Week 27", "Early September",
      "Designed and applied a bespoke visual theme to replace Gradio's default "
      "styling, giving the application a distinct, minimalist identity built on the "
      "theming API rather than replacement HTML, so every built-in control kept its "
@@ -1475,8 +1528,65 @@ log_entries = [
      "recognising that this final artefact was a layout problem rather than another "
      "missing colour variable, since it reappeared in a different place after the "
      "previous fixes, avoided repeating the same colour-variable investigation on "
-     "a bug that colour variables could not actually fix. [STUDENT TO CONFIRM: "
-     "complete this entry with the exact date range once finalised.]"),
+     "a bug that colour variables could not actually fix. The same week, addressed "
+     "the two remaining items from TMA03 tutor feedback that had not yet been "
+     "actioned: a request for a UML-style diagram alongside the existing "
+     "component-level architecture diagram, and the outstanding re-run of the "
+     "TruLens evaluation against the final shipped corpus. A UML sequence diagram "
+     "was produced, tracing a single question through the running system over "
+     "time, from the user's request through embedding, FAISS retrieval, prompt "
+     "assembly and generation, back to the rendered answer, as a companion to the "
+     "existing component diagram rather than a replacement for it. The evaluation "
+     "re-run itself is covered in the Week 18 entry above: it was attempted against "
+     "the three shipped sample documents but did not complete in reasonable time on "
+     "the available hardware, so Section 4.3 still reports the TMA03-stage figures "
+     "with that limitation stated plainly rather than presenting them as newly "
+     "measured. What went well: keeping the evaluation script itself unchanged from "
+     "TMA03 meant the attempted re-run needed no code changes, only a live Ollama "
+     "server with both models already pulled, confirming the evaluation harness "
+     "itself was reusable against a different corpus even though the run could not "
+     "be completed in time."),
+    ("Week 28", "Early September",
+     "Carried out a final pre-submission review of this report against the "
+     "application's actual source code and against TMA03, checking each "
+     "technical claim and the project log's own running test count against the "
+     "live codebase rather than trusting earlier entries by recollection. This "
+     "surfaced one real, if minor, test coverage gap: ConversationMemory's "
+     "turn-trimming logic, dropping the oldest turn once max_turns or max_tokens "
+     "is exceeded, was only exercised indirectly through the pipeline-level "
+     "memory tests, not directly against the class itself. Added a dedicated "
+     "test_memory.py covering turn accumulation, both trimming conditions, "
+     "pop_last_turn on both a populated and an empty memory, transcript "
+     "formatting, and clearing. Live testing the same day, deliberately trying "
+     "a question with no answer in the loaded material, found a second, genuine "
+     "issue: a correctly declined question still listed 'Source:' lines for the "
+     "nearest chunks by distance, even though those chunks were not actually "
+     "used to answer, misrepresenting a decline as a grounded answer. Fixed by "
+     "adding an is_decline() check against the fixed decline phrasing the system "
+     "prompt already mandates, and suppressing the citation block, though not "
+     "the retrieved-excerpts panel, whenever it fires, confirmed live by asking "
+     "an out-of-scope question and checking the reply no longer cited sources "
+     "it had not used. Four further unit tests were added covering both the "
+     "helper directly and its effect on query() and query_stream(). Separately, "
+     "uploading an unrelated document (deliberately not the sample pack) showed "
+     "the fixed 'Example questions' buttons still naming sample-pack specifics "
+     "such as Akhenaten and the Council of Nicaea, inviting clicks that would "
+     "just be declined. Fixed by hiding that panel whenever the loaded "
+     "documents are not exactly the shipped sample pack, verified live the same "
+     "way, with four more unit tests, bringing the suite to fifty-three tests, "
+     "all passing. A related suggestion, to market the application for "
+     "high-stakes, zero-error-tolerance domains such as law, was deliberately "
+     "not acted on: no locally-run model can honestly make that guarantee, and "
+     "doing so would contradict Section 5.3's own framing of citations and "
+     "groundedness as mitigating rather than eliminating the risk of an "
+     "unsupported answer. Instead, added an interface accordion setting out in "
+     "plain terms what the tool is a good fit for and what it is not, consistent "
+     "with the existing ethical position rather than overstating it. What went "
+     "well: reviewing the "
+     "report against the running code one final time, rather than treating it "
+     "as finished once the main "
+     "enhancement phase ended, caught a genuine gap that a read of the report "
+     "text alone would not have revealed."),
 ]
 
 for week, dates, text in log_entries:

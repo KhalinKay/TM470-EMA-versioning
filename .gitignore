@@ -12,11 +12,19 @@ env/
 # Environment variables
 .env
 
-# Data (sample docs are shipped content and are tracked; generated artifacts are not)
+# Data (sample docs are shipped content and are tracked; generated evaluation
+# artifacts are not, except the diagram/screenshot scripts and images used to
+# build the report, which are tracked so the report is reproducible from a clean clone)
 data/faiss_index/*
 !data/faiss_index/.gitkeep
 data/eval_results/*
 !data/eval_results/.gitkeep
+!data/eval_results/make_diagram.py
+!data/eval_results/make_sequence_diagram.py
+!data/eval_results/architecture_diagram.png
+!data/eval_results/sequence_diagram.png
+!data/eval_results/screenshot_initial.png
+!data/eval_results/screenshot_conversation.png
 
 # TruLens local database
 *.sqlite

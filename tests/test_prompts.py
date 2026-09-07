@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from src.rag_assistant.prompts import format_citation, format_excerpt
+from src.rag_assistant.prompts import format_citation, format_excerpt, is_decline
 
 
 def test_format_citation_uses_filename_and_one_based_page():
@@ -25,6 +25,16 @@ def test_format_excerpt_leaves_short_content_untouched():
     doc = Document(page_content="short text", metadata={"source": "notes.txt"})
     excerpt = format_excerpt(doc)
     assert excerpt == "notes.txt, page n/a\nshort text"
+
+
+def test_is_decline_true_for_the_mandated_decline_phrasing():
+    answer = "The question falls outside the scope of the uploaded study material."
+    assert is_decline(answer) is True
+
+
+def test_is_decline_false_for_a_genuine_answer():
+    answer = "RAG combines retrieval with generation."
+    assert is_decline(answer) is False
 
 
 def test_format_excerpt_shows_distance_score_when_present():

@@ -24,6 +24,31 @@ def test_query_returns_answer_with_citation():
     assert len(docs) > 0
 
 
+def test_query_omits_citations_when_the_model_declines_the_question():
+    """A decline still retrieves the nearest chunks by distance, but they were not
+    actually used to answer, so citing them would be misleading."""
+    pipeline = _pipeline("The question falls outside the scope of the uploaded study material.")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    answer, docs = pipeline.query("What is the capital of France?")
+    assert "Source:" not in answer
+    assert len(docs) > 0
+
+
+def test_query_stream_omits_citations_when_the_model_declines_the_question():
+    pipeline = _pipeline("The question falls outside the scope of the uploaded study material.")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = Path(tmp_dir) / "notes.txt"
+        path.write_text("RAG combines retrieval with generation. " * 20, encoding="utf-8")
+        pipeline.ingest([str(path)])
+
+    *_, (final_answer, _) = pipeline.query_stream("What is the capital of France?")
+    assert "Source:" not in final_answer
+
+
 def test_retrieve_attaches_a_numeric_distance_score_to_each_chunk():
     pipeline = _pipeline()
     with tempfile.TemporaryDirectory() as tmp_dir:

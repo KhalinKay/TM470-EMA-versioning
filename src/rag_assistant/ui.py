@@ -176,6 +176,21 @@ def _doc_choices(pipeline: Optional[RAGPipeline]):
     return gr.update(choices=pipeline.loaded_documents if pipeline else [], value=[])
 
 
+def _sample_doc_names() -> set:
+    return {p.name for p in SAMPLE_DOCS_DIR.glob("*") if p.suffix.lower() in {".pdf", ".txt", ".docx"}}
+
+
+def _examples_visibility(pipeline: Optional[RAGPipeline]):
+    """Show the shipped example questions only while they still apply: no documents
+    loaded yet, or exactly the sample pack. They name specific sample-pack facts
+    (Akhenaten, the Council of Nicaea, ...), so once a tutor's own material is
+    loaded instead, showing them would invite clicks that are declined as out of
+    scope."""
+    no_docs = pipeline is None or not pipeline.loaded_documents
+    is_sample_set = no_docs or set(pipeline.loaded_documents) == _sample_doc_names()
+    return gr.update(visible=is_sample_set)
+
+
 def _message_text(content) -> str:
     """Chat message content is normally a plain string, but Gradio's Chatbot can
     round-trip it as a list of {"text": ..., "type": "text"} parts. Handle both."""
@@ -188,16 +203,16 @@ def _message_text(content) -> str:
 
 def handle_upload(files, pipeline: Optional[RAGPipeline]):
     if not files:
-        return "No files selected.", pipeline, _doc_choices(pipeline)
+        return "No files selected.", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     connection_error = check_ollama(SETTINGS.ollama_base_url)
     if connection_error:
-        return connection_error, pipeline, _doc_choices(pipeline)
+        return connection_error, pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     pipeline = pipeline or _new_pipeline()
     paths = _file_paths(files)
     try:
         num_chunks = pipeline.ingest(paths)
     except Exception as exc:  # surfaced to the user rather than crashing the UI
-        return f"Failed to process documents: {exc}", pipeline, _doc_choices(pipeline)
+        return f"Failed to process documents: {exc}", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     replaced_note = ""
     if pipeline.last_replaced_documents:
         replaced_note = f" Replaced existing version(s) of: {', '.join(pipeline.last_replaced_documents)}."
@@ -211,21 +226,22 @@ def handle_upload(files, pipeline: Optional[RAGPipeline]):
         f"{replaced_note}{failed_note} Ask a question below.",
         pipeline,
         _doc_choices(pipeline),
+        _examples_visibility(pipeline),
     )
 
 
 def handle_load_samples(pipeline: Optional[RAGPipeline]):
     paths = [str(p) for p in SAMPLE_DOCS_DIR.glob("*") if p.suffix.lower() in {".pdf", ".txt", ".docx"}]
     if not paths:
-        return f"No sample documents found in {SAMPLE_DOCS_DIR}.", pipeline, _doc_choices(pipeline)
+        return f"No sample documents found in {SAMPLE_DOCS_DIR}.", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     connection_error = check_ollama(SETTINGS.ollama_base_url)
     if connection_error:
-        return connection_error, pipeline, _doc_choices(pipeline)
+        return connection_error, pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     pipeline = pipeline or _new_pipeline()
     try:
         num_chunks = pipeline.ingest(paths)
     except Exception as exc:
-        return f"Failed to load sample documents: {exc}", pipeline, _doc_choices(pipeline)
+        return f"Failed to load sample documents: {exc}", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     names = ", ".join(Path(p).name for p in paths)
     replaced_note = ""
     if pipeline.last_replaced_documents:
@@ -239,18 +255,25 @@ def handle_load_samples(pipeline: Optional[RAGPipeline]):
         f"{replaced_note}{failed_note} Try one of the example questions below, or ask your own.",
         pipeline,
         _doc_choices(pipeline),
+        _examples_visibility(pipeline),
     )
 
 
 def handle_remove_documents(pipeline: Optional[RAGPipeline]):
     if pipeline is not None:
         pipeline.clear_documents()
-    return "All documents removed. Upload files or load the sample pack to begin.", pipeline, [], _doc_choices(pipeline)
+    return (
+        "All documents removed. Upload files or load the sample pack to begin.",
+        pipeline,
+        [],
+        _doc_choices(pipeline),
+        _examples_visibility(pipeline),
+    )
 
 
 def handle_remove_selected(selected: List[str], pipeline: Optional[RAGPipeline]):
     if not selected or pipeline is None:
-        return "No documents selected to remove.", pipeline, _doc_choices(pipeline)
+        return "No documents selected to remove.", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     for filename in selected:
         pipeline.remove_document(filename)
     if pipeline.index is None:
@@ -260,7 +283,7 @@ def handle_remove_selected(selected: List[str], pipeline: Optional[RAGPipeline])
             f"Removed {len(selected)} document(s). {pipeline.total_chunks} chunk(s) remain across "
             f"{len(pipeline.loaded_documents)} document(s)."
         )
-    return status, pipeline, _doc_choices(pipeline)
+    return status, pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
 
 
 def handle_save_session(pipeline: Optional[RAGPipeline]):
@@ -278,17 +301,18 @@ def handle_save_session(pipeline: Optional[RAGPipeline]):
 
 def handle_resume_session(pipeline: Optional[RAGPipeline]):
     if not index_exists(SETTINGS.index_dir):
-        return "No saved session found on disk.", pipeline, _doc_choices(pipeline)
+        return "No saved session found on disk.", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     pipeline = pipeline or _new_pipeline()
     try:
         pipeline.load()
     except Exception as exc:
-        return f"Failed to resume the saved session: {exc}", pipeline, _doc_choices(pipeline)
+        return f"Failed to resume the saved session: {exc}", pipeline, _doc_choices(pipeline), _examples_visibility(pipeline)
     return (
         f"Resumed the saved session: {len(pipeline.loaded_documents)} document(s), "
         f"{pipeline.total_chunks} chunks. Ask a question below.",
         pipeline,
         _doc_choices(pipeline),
+        _examples_visibility(pipeline),
     )
 
 
@@ -528,10 +552,24 @@ def build_app() -> gr.Blocks:
                         "To widen what it can answer, upload documents that cover the topic you want to ask about."
                     )
 
+                with gr.Accordion("What is this a good fit for?", open=False):
+                    gr.Markdown(
+                        "Best suited to tasks where every answer needs to trace back to a specific document you "
+                        "already trust: revising from your own lecture notes or textbook chapters, checking what a "
+                        "particular policy or procedure document actually says, or summarising material you can "
+                        "then verify yourself against the citation.\n\n"
+                        "It is not a substitute for professional advice in law, medicine, finance or other "
+                        "high-stakes domains. Grounding answers in retrieved text and citing sources reduces the "
+                        "risk of an unsupported answer, but does not eliminate it: retrieval can still surface the "
+                        "wrong passage, and the model can still misread the context it is given. Anything that "
+                        "matters should be checked against the cited source, not taken on trust."
+                    )
+
             with gr.Column(scale=2, elem_id="main-chat"):
                 chatbot = gr.Chatbot(label="Conversation", height=560, elem_id="chatbot")
                 question_box = gr.Textbox(label="Ask a question", placeholder="e.g. What are the Five Pillars of Islam?")
-                gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
+                with gr.Column(visible=True) as examples_col:
+                    gr.Examples(examples=SAMPLE_QUESTIONS, inputs=question_box, label="Example questions (after loading the sample documents)")
                 with gr.Row():
                     submit_btn = gr.Button("Ask", variant="primary")
                     regenerate_btn = gr.Button("Regenerate answer")
@@ -542,22 +580,22 @@ def build_app() -> gr.Blocks:
         file_upload.upload(
             handle_upload,
             inputs=[file_upload, pipeline_state],
-            outputs=[upload_status, pipeline_state, doc_list],
+            outputs=[upload_status, pipeline_state, doc_list, examples_col],
         )
         sample_btn.click(
             handle_load_samples,
             inputs=[pipeline_state],
-            outputs=[upload_status, pipeline_state, doc_list],
+            outputs=[upload_status, pipeline_state, doc_list, examples_col],
         )
         remove_docs_btn.click(
             handle_remove_documents,
             inputs=[pipeline_state],
-            outputs=[upload_status, pipeline_state, chatbot, doc_list],
+            outputs=[upload_status, pipeline_state, chatbot, doc_list, examples_col],
         )
         remove_selected_btn.click(
             handle_remove_selected,
             inputs=[doc_list, pipeline_state],
-            outputs=[upload_status, pipeline_state, doc_list],
+            outputs=[upload_status, pipeline_state, doc_list, examples_col],
         )
         save_session_btn.click(
             handle_save_session,
@@ -567,7 +605,7 @@ def build_app() -> gr.Blocks:
         resume_session_btn.click(
             handle_resume_session,
             inputs=[pipeline_state],
-            outputs=[upload_status, pipeline_state, doc_list],
+            outputs=[upload_status, pipeline_state, doc_list, examples_col],
         )
         top_k_slider.change(
             handle_top_k_change,

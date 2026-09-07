@@ -21,6 +21,10 @@ Conversation history:
 Question: {question}
 Answer:"""
 
+# Matches the decline behaviour mandated by SYSTEM_PROMPT rule 2, so callers can
+# tell a genuine answer apart from a decline without re-parsing the whole prompt.
+DECLINE_PHRASE = "falls outside the scope of the uploaded study material"
+
 CONCISE_INSTRUCTION = "Be concise and directly address the question in a short paragraph."
 DETAILED_INSTRUCTION = (
     "Answer thoroughly: cover the relevant background, reasoning and any nuance "
@@ -52,6 +56,16 @@ def format_context(docs: List[Document]) -> str:
 def format_citation(doc: Document) -> str:
     """Render the mandatory 'Source: [filename], page [n]' citation line."""
     return f"Source: {_filename(doc)}, page {_page_label(doc)}"
+
+
+def is_decline(answer: str) -> bool:
+    """True if the model declined to answer rather than using the retrieved context.
+
+    Retrieved chunks are always the nearest available by distance, even when
+    none are actually relevant, so citations naming them would misleadingly
+    imply they were used to answer a question that was in fact declined.
+    """
+    return DECLINE_PHRASE in answer
 
 
 def format_excerpt(doc: Document, max_chars: int = 320) -> str:
