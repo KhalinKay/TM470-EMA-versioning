@@ -29,13 +29,19 @@ flowchart LR
 
 ## Prerequisites
 
-1. Install [Ollama](https://ollama.com/) and start the server (`ollama serve` runs by default on `http://localhost:11434`).
-2. Pull the required models:
+1. Download and install Ollama from [ollama.com/download](https://ollama.com/download) (Windows, macOS and Linux are all supported). The installer starts the Ollama server automatically in the background on `http://localhost:11434`; no separate setup step is needed.
+2. Open a terminal and confirm the install worked:
+   ```powershell
+   ollama --version
+   ```
+3. Pull the two models this application needs. This is a one-off download of roughly 5 GB in total, so it can take a few minutes depending on connection speed:
    ```powershell
    ollama pull llama3:8b
    ollama pull nomic-embed-text
    ```
-3. Python 3.11.
+4. Install [Python](https://www.python.org/downloads/) 3.11 or later, if not already installed.
+
+No GPU is required. Both models run on CPU; generation is simply faster with one.
 
 ## Setup
 
@@ -55,6 +61,8 @@ python main.py
 ```
 
 This launches the Gradio UI (default `http://127.0.0.1:7860`). Upload one or more documents, wait for the "Indexed..." status message, then ask questions in the chat box.
+
+If the app reports it cannot reach Ollama, open a terminal and run `ollama serve` to start it manually, then reload the page. If a model name is reported as not found, re-run the `ollama pull` commands from the Prerequisites section above.
 
 ## Running tests
 
