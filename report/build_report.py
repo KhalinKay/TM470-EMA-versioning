@@ -1,10 +1,7 @@
 """Builds the EMA (End-of-Module Assessment) report as a single .docx file.
 
 This is a one-off authoring tool, not part of the RAG application. It is run
-manually to assemble report/EMA_L2049806_TM470.docx from the text below. The
-generated document still needs a personal read-through: the Concluding
-Reflection (Section 6.7) is a starting draft and must be rewritten in the
-author's own words and judgement before submission.
+manually to assemble report/EMA_L2049806_TM470.docx from the text below.
 
 If data/eval_results/chunk_size_comparison.csv exists (produced by
 evaluation/run_evaluation.py run against the final shipped sample corpus), its
