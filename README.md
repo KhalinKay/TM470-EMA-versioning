@@ -2,6 +2,8 @@
 
 A local, fully offline Retrieval-Augmented Generation (RAG) chatbot for studying from your own documents (PDF, `.txt`, `.docx`). No document content or questions are ever sent to an external API. All embedding and generation runs through a locally hosted [Ollama](https://ollama.com/) server.
 
+> **EMA report:** the full written submission is [report/EMA_L2049806_TM470.docx](report/EMA_L2049806_TM470.docx). Everything else in this repository is the supporting application code, tests and evaluation harness described in that report.
+
 ## Features
 
 - Upload PDF, Word (`.docx`) or plain text study documents through a Gradio web UI.
@@ -84,6 +86,7 @@ pytest
 ## Project structure
 
 ```
+report/              EMA_L2049806_TM470.docx (the submission) and the script that builds it
 src/rag_assistant/   application package (ingestion, indexing, memory, prompts, pipeline, ui)
 evaluation/          TruLens RAG Triad evaluation harness and test question set
 tests/                unit tests (offline, using fake embeddings/LLM)
