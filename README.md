@@ -86,7 +86,7 @@ pytest
 ## Project structure
 
 ```
-report/              EMA_L2049806_TM470.docx (the submission) and the script that builds it
+report/              EMA_L2049806_TM470.docx (the EMA submission)
 src/rag_assistant/   application package (ingestion, indexing, memory, prompts, pipeline, ui)
 evaluation/          TruLens RAG Triad evaluation harness and test question set
 tests/                unit tests (offline, using fake embeddings/LLM)
